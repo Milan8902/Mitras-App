@@ -9,6 +9,8 @@ import '../global/global.dart';
 import '../authentication/login.dart';
 import '../widgets/error_dialog.dart';
 import '../widgets/loading_dialog.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -457,9 +459,33 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 fontWeight: FontWeight.bold,
               ),
             ),
-            content: Text(
-              'Are you sure you want to delete your account? This action cannot be undone.',
-              style: GoogleFonts.poppins(),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Are you sure you want to delete your account?',
+                  style: GoogleFonts.poppins(),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This will permanently delete:',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 4),
+                Text('• Your profile information', style: GoogleFonts.poppins()),
+                Text('• Order history', style: GoogleFonts.poppins()),
+                Text('• Saved addresses', style: GoogleFonts.poppins()),
+                Text('• Cart items', style: GoogleFonts.poppins()),
+                const SizedBox(height: 8),
+                Text(
+                  'This action cannot be undone.',
+                  style: GoogleFonts.poppins(
+                    color: Colors.red,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
             actions: [
               TextButton(
@@ -518,41 +544,39 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           throw Exception("Invalid user data format");
         }
 
-        // Delete user's cart items if they exist
-        if (userData.containsKey("userCart") && userData["userCart"] is List) {
-          List<dynamic> cartItems = userData["userCart"];
-          for (var item in cartItems) {
-            if (item is String && item != "garbageValue") {
-              // Delete cart item document if it exists
-              DocumentReference cartItemRef = FirebaseFirestore.instance
-                  .collection("users")
-                  .doc(uid)
-                  .collection("cart")
-                  .doc(item);
-              
-              DocumentSnapshot cartItemDoc = await transaction.get(cartItemRef);
-              if (cartItemDoc.exists) {
-                transaction.delete(cartItemRef);
-              }
-            }
-          }
+        // Delete user's cart items
+        QuerySnapshot cartSnapshot = await FirebaseFirestore.instance
+            .collection("users")
+            .doc(uid)
+            .collection("cart")
+            .get();
+
+        for (var doc in cartSnapshot.docs) {
+          transaction.delete(doc.reference);
         }
 
-        // Delete user's orders if they exist
+        // Delete user's orders
         QuerySnapshot ordersSnapshot = await FirebaseFirestore.instance
             .collection("orders")
-            .where("uid", isEqualTo: uid)
+            .where("orderBy", isEqualTo: uid)
             .get();
 
         for (var doc in ordersSnapshot.docs) {
           transaction.delete(doc.reference);
         }
 
-        // Delete user document
-        transaction.delete(userDoc.reference);
+        // Delete user's addresses
+        QuerySnapshot addressesSnapshot = await FirebaseFirestore.instance
+            .collection("users")
+            .doc(uid)
+            .collection("userAddress")
+            .get();
 
-        // Delete any other user-related collections
-        // For example, if you have a "favorites" collection
+        for (var doc in addressesSnapshot.docs) {
+          transaction.delete(doc.reference);
+        }
+
+        // Delete user's favorites
         QuerySnapshot favoritesSnapshot = await FirebaseFirestore.instance
             .collection("users")
             .doc(uid)
@@ -562,10 +586,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         for (var doc in favoritesSnapshot.docs) {
           transaction.delete(doc.reference);
         }
+
+        // Delete user document
+        transaction.delete(userDoc.reference);
       });
 
       // After successful deletion of Firestore data, delete authentication
-      await FirebaseAuth.instance.currentUser!.delete();
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        await currentUser.delete();
+      }
 
       // Clear shared preferences
       await sharedPreferences!.clear();
@@ -598,6 +628,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         errorMessage += "User data not found.";
       } else if (e.toString().contains("permission-denied")) {
         errorMessage += "Permission denied. Please try again later.";
+      } else if (e.toString().contains("network")) {
+        errorMessage += "Network error. Please check your internet connection.";
       } else {
         errorMessage += "Please try again later.";
       }
@@ -612,6 +644,86 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           },
         );
       }
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext c) {
+          return const LoadingDialog(message: "Getting your location...");
+        },
+      );
+
+      // Check location permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          Navigator.pop(context); // Remove loading dialog
+          showDialog(
+            context: context,
+            builder: (c) {
+              return const ErrorDialog(message: "Location permission denied");
+            },
+          );
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        Navigator.pop(context); // Remove loading dialog
+        showDialog(
+          context: context,
+          builder: (c) {
+            return const ErrorDialog(
+              message: "Location permission permanently denied. Please enable it in settings.",
+            );
+          },
+        );
+        return;
+      }
+
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // Get address from coordinates
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        String address = '${place.street}, ${place.subLocality}, ${place.locality}, ${place.administrativeArea}, ${place.postalCode}, ${place.country}';
+        
+        setState(() {
+          _addressController.text = address;
+        });
+      }
+
+      Navigator.pop(context); // Remove loading dialog
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Address updated successfully!"),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      Navigator.pop(context); // Remove loading dialog
+      showDialog(
+        context: context,
+        builder: (c) {
+          return ErrorDialog(
+            message: "Error getting location: $e",
+          );
+        },
+      );
     }
   }
 
@@ -898,32 +1010,59 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     required bool enabled,
     int maxLines = 1,
   }) {
-    return TextField(
-      controller: controller,
-      enabled: enabled,
-      maxLines: maxLines,
-      style: GoogleFonts.poppins(
-        fontSize: 16,
-        color: Colors.black87,
-      ),
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: Colors.orange),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          enabled: enabled,
+          maxLines: maxLines,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            color: Colors.black87,
+          ),
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(icon, color: Colors.orange),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Colors.orange),
+            ),
+            filled: true,
+            fillColor: enabled ? Colors.white : Colors.grey.shade100,
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Colors.orange),
-        ),
-        filled: true,
-        fillColor: enabled ? Colors.white : Colors.grey.shade100,
-      ),
+        if (label == 'Address' && enabled)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: ElevatedButton.icon(
+              onPressed: _getCurrentLocation,
+              icon: const Icon(Icons.my_location, color: Colors.white),
+              label: Text(
+                'Use Current Location',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 

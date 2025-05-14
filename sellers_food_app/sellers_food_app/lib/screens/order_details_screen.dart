@@ -29,9 +29,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         .doc(widget.orderID)
         .get()
         .then((DocumentSnapshot) {
-      orderStatus = DocumentSnapshot.data()!["status"].toString();
-      orderByUser = DocumentSnapshot.data()!["orderBy"].toString();
-      sellerId = DocumentSnapshot.data()!["sellerUID"].toString();
+      if (DocumentSnapshot.exists && DocumentSnapshot.data() != null) {
+        setState(() {
+          orderStatus = DocumentSnapshot.data()!["status"]?.toString() ?? "";
+          orderByUser = DocumentSnapshot.data()!["orderBy"]?.toString() ?? "";
+          sellerId = DocumentSnapshot.data()!["sellerUID"]?.toString() ?? "";
+        });
+      }
     });
   }
 
@@ -53,16 +57,18 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 .doc(widget.orderID)
                 .get(),
             builder: (c, snapshot) {
-              Map? dataMap;
-              if (snapshot.hasData) {
-                dataMap = snapshot.data!.data()! as Map<String, dynamic>;
-                orderStatus = dataMap["status"].toString();
+              Map<String, dynamic>? dataMap;
+              if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
+                dataMap = snapshot.data!.data() as Map<String, dynamic>?;
+                if (dataMap != null) {
+                  orderStatus = dataMap["status"]?.toString() ?? "";
+                }
               }
-              return snapshot.hasData
+              return snapshot.hasData && dataMap != null
                   ? Column(
                       children: [
                         StatusBanner(
-                          status: dataMap!["isSuccess"],
+                          status: dataMap["isSuccess"] ?? false,
                           orderStatus: orderStatus,
                         ),
                         const SizedBox(
@@ -73,7 +79,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              "€  " + dataMap["totalAmount"].toString(),
+                              "RS  ${dataMap["totalAmount"]?.toString() ?? "0"}",
                               style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -84,17 +90,16 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: Text(
-                            "Order Id = " + widget.orderID!,
+                            "Order Id = ${widget.orderID ?? "N/A"}",
                             style: const TextStyle(fontSize: 16),
                           ),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: Text(
-                            "Order at: " +
-                                DateFormat("dd MMMM, yyyy - hh:mm aa").format(
-                                    DateTime.fromMillisecondsSinceEpoch(
-                                        int.parse(dataMap["orderTime"]))),
+                            "Order at: ${dataMap["orderTime"] != null ? DateFormat("dd MMMM, yyyy - hh:mm aa").format(
+                                DateTime.fromMillisecondsSinceEpoch(
+                                    int.parse(dataMap["orderTime"].toString()))) : "N/A"}",
                             style: const TextStyle(
                                 fontSize: 16, color: Colors.grey),
                           ),
@@ -113,21 +118,24 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                               .collection("users")
                               .doc(orderByUser)
                               .collection("userAddress")
-                              .doc(dataMap["addressID"])
+                              .doc(dataMap["addressID"]?.toString())
                               .get(),
                           builder: (c, snapshot) {
-                            return snapshot.hasData
-                                ? ShipmentAddressDesign(
-                                    model: Address.fromJson(snapshot.data!
-                                        .data()! as Map<String, dynamic>),
-                                    orderStatus: orderStatus,
-                                    orderId: widget.orderID,
-                                    sellerId: sellerId,
-                                    orderByUser: orderByUser,
-                                  )
-                                : Center(
-                                    child: circularProgress(),
-                                  );
+                            if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
+                              final addressData = snapshot.data!.data() as Map<String, dynamic>?;
+                              if (addressData != null) {
+                                return ShipmentAddressDesign(
+                                  model: Address.fromJson(addressData),
+                                  orderStatus: orderStatus,
+                                  orderId: widget.orderID,
+                                  sellerId: sellerId,
+                                  orderByUser: orderByUser,
+                                );
+                              }
+                            }
+                            return Center(
+                              child: circularProgress(),
+                            );
                           },
                         ),
                       ],

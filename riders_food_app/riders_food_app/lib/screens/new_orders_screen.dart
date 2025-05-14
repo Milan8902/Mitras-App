@@ -235,15 +235,6 @@ class _NewOrdersScreenState extends State<NewOrdersScreen>
                                                   >)["productIDs"],
                                             ),
                                           )
-                                          .where(
-                                            "orderBy",
-                                            whereIn:
-                                                (orderDocs[index].data()!
-                                                    as Map<
-                                                      String,
-                                                      dynamic
-                                                    >)["uid"],
-                                          )
                                           .orderBy(
                                             "publishedDate",
                                             descending: true,
@@ -251,26 +242,41 @@ class _NewOrdersScreenState extends State<NewOrdersScreen>
                                           .get(),
                                   builder: (c, snap) {
                                     if (!snap.hasData) {
-                                      return Center(child: circularProgress());
+                                      return const SizedBox.shrink();
                                     }
-                                    return Card(
-                                      elevation:2 ,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: OrderCard(
-                                        itemCount: snap.data!.docs.length,
-                                        data: snap.data!.docs,
-                                        orderID: orderDocs[index].id,
-                                        seperateQuantitiesList:
-                                            separateOrderItemQuantities(
-                                              (orderDocs[index].data()!
-                                                  as Map<
-                                                    String,
-                                                    dynamic
-                                                  >)["productIDs"],
-                                            ),
-                                      ),
+
+                                    // Get the order data
+                                    Map<String, dynamic> orderData = orderDocs[index].data()! as Map<String, dynamic>;
+                                    String? orderByUser = orderData["orderBy"]?.toString();
+
+                                    // Check if user exists
+                                    return FutureBuilder<DocumentSnapshot>(
+                                      future: FirebaseFirestore.instance
+                                          .collection("users")
+                                          .doc(orderByUser)
+                                          .get(),
+                                      builder: (context, userSnapshot) {
+                                        // If user doesn't exist or data is not available, don't show the order
+                                        if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+                                          return const SizedBox.shrink();
+                                        }
+
+                                        return Card(
+                                          elevation: 2,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                          child: OrderCard(
+                                            itemCount: snap.data!.docs.length,
+                                            data: snap.data!.docs,
+                                            orderID: orderDocs[index].id,
+                                            seperateQuantitiesList:
+                                                separateOrderItemQuantities(
+                                                  orderData["productIDs"],
+                                                ),
+                                          ),
+                                        );
+                                      },
                                     );
                                   },
                                 ),

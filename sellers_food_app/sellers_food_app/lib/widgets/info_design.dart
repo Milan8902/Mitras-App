@@ -44,14 +44,83 @@ class _InfoDesignWidgetState extends State<InfoDesignWidget>
   }
 
   void deleteMenu(String menuID) {
-    FirebaseFirestore.instance
-        .collection("sellers")
-        .doc(sharedPreferences!.getString("uid"))
-        .collection("menus")
-        .doc(menuID)
-        .delete();
-
-    Fluttertoast.showToast(msg: "Menu Deleted");
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            "Delete Menu",
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Text(
+            "Are you sure you want to delete this menu? This action cannot be undone.",
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                "Cancel",
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                // Delete menu and its items
+                FirebaseFirestore.instance
+                    .collection("sellers")
+                    .doc(sharedPreferences!.getString("uid"))
+                    .collection("menus")
+                    .doc(menuID)
+                    .delete()
+                    .then((value) {
+                  // Delete all items in this menu
+                  FirebaseFirestore.instance
+                      .collection("sellers")
+                      .doc(sharedPreferences!.getString("uid"))
+                      .collection("menus")
+                      .doc(menuID)
+                      .collection("items")
+                      .get()
+                      .then((snapshot) {
+                    for (var doc in snapshot.docs) {
+                      doc.reference.delete();
+                    }
+                  });
+                  
+                  Navigator.pop(context);
+                  Fluttertoast.showToast(msg: "Menu Deleted Successfully");
+                }).catchError((error) {
+                  Navigator.pop(context);
+                  Fluttertoast.showToast(msg: "Error deleting menu: $error");
+                });
+              },
+              child: Text(
+                "Delete",
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFFF4081),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -61,176 +130,167 @@ class _InfoDesignWidgetState extends State<InfoDesignWidget>
     }
 
     Widget imageWidget;
-    const double imageSize = 70; // Adjusted for vertical layout
+    const double imageSize = 70;
 
-    // Priority: imageUrl > base64Image
     if (widget.model!.imageUrl != null && widget.model!.imageUrl!.isNotEmpty) {
       imageWidget = Image.network(
         widget.model!.imageUrl!,
-        width: imageSize,
-        height: imageSize,
+        width: double.infinity,
+        height: 120,
         fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return SizedBox(
-            width: imageSize,
-            height: imageSize,
-            child: Center(
-              child: CircularProgressIndicator(color: const Color(0xFFF57C00)),
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: double.infinity,
+            height: 120,
+            color: Colors.grey[200],
+            child: const Icon(
+              Icons.image_not_supported,
+              color: Colors.grey,
+              size: 40,
             ),
           );
         },
-        errorBuilder:
-            (context, error, stackTrace) => Icon(
-              Icons.broken_image,
-              size: imageSize,
-              color: Colors.grey[400],
-            ),
       );
-    } else if (widget.model!.imageUrl != null &&
-        widget.model!.imageUrl!.isNotEmpty) {
-      try {
-        final imageBytes = base64Decode(widget.model!.imageUrl!);
-        imageWidget = Image.memory(
-          imageBytes,
-          width: imageSize,
-          height: imageSize,
-          fit: BoxFit.cover,
-        );
-      } catch (e) {
-        imageWidget = Icon(
-          Icons.broken_image,
-          size: imageSize,
-          color: Colors.grey[400],
-        );
-      }
+    } else if (widget.model!.thumbnailUrl != null && widget.model!.thumbnailUrl!.isNotEmpty) {
+      imageWidget = Image.network(
+        widget.model!.thumbnailUrl!,
+        width: double.infinity,
+        height: 120,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: double.infinity,
+            height: 120,
+            color: Colors.grey[200],
+            child: const Icon(
+              Icons.image_not_supported,
+              color: Colors.grey,
+              size: 40,
+            ),
+          );
+        },
+      );
     } else {
-      imageWidget = Icon(
-        Icons.image_not_supported,
-        size: imageSize,
-        color: Colors.grey[400],
+      imageWidget = Container(
+        width: double.infinity,
+        height: 120,
+        color: Colors.grey[200],
+        child: const Icon(
+          Icons.restaurant_menu,
+          color: Colors.grey,
+          size: 40,
+        ),
       );
     }
 
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (c) => ItemsScreen(model: widget.model)),
-          );
-        },
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: imageWidget,
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Color(0xFFFF4081),
+                      size: 20,
+                    ),
+                    onPressed: () => deleteMenu(widget.model!.menuID!),
+                  ),
+                ),
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Image
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: const Color(0xFFE1F5FE),
-                          width: 2,
-                        ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.model!.menuTitle ?? "No Title",
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.model!.menuInfo ?? "No Info",
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.grey[600],
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (c) => ItemsScreen(model: widget.model),
                       ),
-                      child: imageWidget,
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFAC898).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "View Items",
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFFF57C00),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.arrow_forward,
+                          size: 14,
+                          color: Color(0xFFF57C00),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-
-                  // Text Content
-                  Text(
-                    widget.model!.menuTitle ?? "No Title",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 4),
-
-                  Text(
-                    widget.model!.menuInfo ?? "No Info",
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.grey[600],
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Popup Menu
-                  // Align(
-                  //   alignment: Alignment.topRight,
-                  //   child: PopupMenuButton<String>(
-                  //     onSelected: (value) {
-                  //       if (value == 'delete') {
-                  //         deleteMenu(widget.model!.menuID!);
-                  //       }
-                  //     },
-                  //     itemBuilder:
-                  //         (BuildContext context) => [
-                  //           PopupMenuItem<String>(
-                  //             value: 'delete',
-                  //             child: Row(
-                  //               children: [
-                  //                 const Icon(
-                  //                   Icons.delete,
-                  //                   color: Color(0xFFFF4081),
-                  //                 ),
-                  //                 const SizedBox(width: 8),
-                  //                 Text(
-                  //                   'Delete',
-                  //                   style: GoogleFonts.poppins(
-                  //                     fontSize: 14,
-                  //                     color: Colors.black87,
-                  //                   ),
-                  //                 ),
-                  //               ],
-                  //             ),
-                  //           ),
-                  //         ],
-                  //     icon: const Icon(
-                  //       Icons.more_vert,
-                  //       color: Color(0xFF0288D1),
-                  //       size: 20,
-                  //     ),
-                  //     shape: RoundedRectangleBorder(
-                  //       borderRadius: BorderRadius.circular(12),
-                  //     ),
-                  //     color: Colors.white,
-                  //     elevation: 4,
-                  //   ),
-                  // ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }

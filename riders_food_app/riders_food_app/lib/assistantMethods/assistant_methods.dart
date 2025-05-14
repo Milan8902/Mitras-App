@@ -47,7 +47,7 @@ separateItemIDs() {
 separateOrderItemQuantities(orderIDs) {
   List<String> separateItemQuantityList = [];
   List<String> defaultItemList = [];
-  int i = 1;
+  int i = 0;
 
   defaultItemList = List<String>.from(orderIDs);
 
@@ -58,10 +58,19 @@ separateOrderItemQuantities(orderIDs) {
     //to this format => 7
     List<String> listItemCharacters = item.split(":").toList();
 
-    //converting to int
-    var quanNumber = int.parse(listItemCharacters[1].toString());
-
-    separateItemQuantityList.add(quanNumber.toString());
+    // Check if the list has at least 2 elements and the second element is a valid number
+    if (listItemCharacters.length >= 2) {
+      try {
+        var quanNumber = int.parse(listItemCharacters[1].toString());
+        separateItemQuantityList.add(quanNumber.toString());
+      } catch (e) {
+        // If parsing fails, add a default quantity of 1
+        separateItemQuantityList.add("1");
+      }
+    } else {
+      // If the format is invalid, add a default quantity of 1
+      separateItemQuantityList.add("1");
+    }
   }
 
   return separateItemQuantityList;

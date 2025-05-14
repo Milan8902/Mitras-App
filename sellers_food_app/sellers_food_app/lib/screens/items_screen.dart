@@ -77,6 +77,12 @@ class _ItemsScreenState extends State<ItemsScreen>
               backgroundColor: Colors.transparent,
               elevation: 0,
               expandedHeight: 160,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
               flexibleSpace: FlexibleSpaceBar(
                 background: FadeTransition(
                   opacity: _fadeAnimation,

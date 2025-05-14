@@ -51,52 +51,98 @@ class _ItemsDesignState extends State<ItemsDesign>
     Widget imageWidget;
     const double imageSize = 120; // Smaller for grid fit
 
-    if (widget.model?.imageUrl != null) {
-      final imgStr = widget.model!.imageUrl!;
-      if (imgStr.startsWith('http')) {
-        // Handle as image URL
-        imageWidget = Image.network(
-          imgStr,
+    if (widget.model?.imageUrl != null && widget.model!.imageUrl!.isNotEmpty) {
+      // Handle as image URL
+      imageWidget = Image.network(
+        widget.model!.imageUrl!,
+        height: imageSize,
+        width: imageSize,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            height: imageSize,
+            width: imageSize,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                        : null,
+                    color: const Color(0xFF40C4FF),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Loading...',
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          debugPrint('Error loading image: $error');
+          return Container(
+            height: imageSize,
+            width: imageSize,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.broken_image,
+                  size: imageSize * 0.4,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Image Error',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                Text(
+                  'Tap to retry',
+                  style: GoogleFonts.poppins(
+                    fontSize: 8,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } else if (widget.model?.imageBase64 != null && widget.model!.imageBase64!.isNotEmpty) {
+      // Try decoding as base64
+      try {
+        final imageBytes = base64Decode(widget.model!.imageBase64!);
+        imageWidget = Image.memory(
+          imageBytes,
           height: imageSize,
           width: imageSize,
           fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return SizedBox(
-              height: imageSize,
-              width: imageSize,
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: const Color(0xFF40C4FF),
-                ),
-              ),
-            );
-          },
-          errorBuilder:
-              (context, error, stackTrace) => Icon(
-                Icons.broken_image,
-                size: imageSize * 0.5,
-                color: Colors.grey[400],
-              ),
-        );
-      } else if (isBase64(imgStr)) {
-        // Try decoding as base64
-        try {
-          final imageBytes = base64Decode(imgStr);
-          imageWidget = Image.memory(
-            imageBytes,
-            height: imageSize,
-            width: imageSize,
-            fit: BoxFit.cover,
-          );
-        } catch (e) {
-          imageWidget = Icon(
+          errorBuilder: (context, error, stackTrace) => Icon(
             Icons.broken_image,
             size: imageSize * 0.5,
             color: Colors.grey[400],
-          );
-        }
-      } else {
+          ),
+        );
+      } catch (e) {
         imageWidget = Icon(
           Icons.broken_image,
           size: imageSize * 0.5,
@@ -112,10 +158,23 @@ class _ItemsDesignState extends State<ItemsDesign>
           color: Colors.grey[200],
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(
-          Icons.fastfood,
-          size: 50,
-          color: Color(0xFFF57C00), // HomeScreen blue
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.fastfood,
+              size: 40,
+              color: Color(0xFFF57C00),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'No Image',
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
         ),
       );
     }

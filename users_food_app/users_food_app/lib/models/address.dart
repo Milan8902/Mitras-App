@@ -1,6 +1,6 @@
 class Address {
   String? name;
-  String? phoneNumber;
+  String phoneNumber = '';
   String? flatNumber;
   String? city;
   String? state;
@@ -10,7 +10,7 @@ class Address {
 
   Address({
     this.name,
-    this.phoneNumber,
+    required this.phoneNumber,
     this.flatNumber,
     this.city,
     this.state,
@@ -21,7 +21,7 @@ class Address {
 
   Address.fromJson(Map<String, dynamic> json) {
     name = json['name'];
-    phoneNumber = json['phoneNumber'];
+    phoneNumber = json['phoneNumber'] ?? '';
     flatNumber = json['flatNumber'];
     city = json['city'];
     state = json['state'];
@@ -42,5 +42,21 @@ class Address {
     data['lng'] = lng;
 
     return data;
+  }
+
+  bool isValid() {
+    if (phoneNumber.isEmpty || !RegExp(r'^\d+$').hasMatch(phoneNumber)) {
+      return false;
+    }
+    return true;
+  }
+
+  String getFormattedPhoneNumber() {
+    String digits = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
+    
+    if (digits.length == 10) {
+      return '(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}';
+    }
+    return phoneNumber;
   }
 }

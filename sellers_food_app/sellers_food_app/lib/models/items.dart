@@ -8,6 +8,7 @@ class Items {
   String? shortInfo;
   Timestamp? publishedDate;
   String? imageUrl;
+  String? imageBase64;
   String? longDescription;
   String? status;
   int? price;
@@ -22,6 +23,7 @@ class Items {
     this.shortInfo,
     this.status,
     this.imageUrl,
+    this.imageBase64,
     this.title,
   });
 
@@ -33,6 +35,7 @@ class Items {
     shortInfo = json["shortInfo"];
     publishedDate = json["publishedDate"];
     imageUrl = json["imageUrl"];
+    imageBase64 = json["imageBase64"];
     longDescription = json["longDescription"];
     status = json["status"];
     price = json["price"];
@@ -47,6 +50,7 @@ class Items {
     data["shortInfo"] = shortInfo;
     data["publishedDate"] = publishedDate;
     data["imageUrl"] = imageUrl;
+    data["imageBase64"] = imageBase64;
     data["longDescription"] = longDescription;
     data["status"] = status;
     data["price"] = price;

@@ -24,22 +24,25 @@ class _OrderDetailScreenOneState extends State<OrderDetailScreenOne> {
   String orderByUser = "";
   String sellerId = "";
 
-  getOrderInfo() {
-    FirebaseFirestore.instance
+  Future<void> getOrderInfo() async {
+    DocumentSnapshot documentSnapshot = await FirebaseFirestore.instance
         .collection("orders")
         .doc(widget.orderID)
-        .get()
-        .then((DocumentSnapshot) {
-      orderStatus = DocumentSnapshot.data()!["status"].toString();
-      orderByUser = DocumentSnapshot.data()!["orderBy"].toString();
-      sellerId = DocumentSnapshot.data()!["sellerUID"].toString();
-    });
+        .get();
+    
+    if (mounted) {
+      setState(() {
+        Map<String, dynamic> data = documentSnapshot.data()! as Map<String, dynamic>;
+        orderStatus = data["status"].toString();
+        orderByUser = data["orderBy"].toString();
+        sellerId = data["sellerUID"].toString();
+      });
+    }
   }
 
   @override
   void initState() {
     super.initState();
-
     getOrderInfo();
   }
 
@@ -58,6 +61,8 @@ class _OrderDetailScreenOneState extends State<OrderDetailScreenOne> {
               if (snapshot.hasData) {
                 dataMap = snapshot.data!.data()! as Map<String, dynamic>;
                 orderStatus = dataMap["status"].toString();
+                orderByUser = dataMap["orderBy"].toString();
+                sellerId = dataMap["sellerUID"].toString();
               }
               return snapshot.hasData
                   ? Column(
@@ -116,28 +121,32 @@ class _OrderDetailScreenOneState extends State<OrderDetailScreenOne> {
                                 width: 300,
                               ),
                         const Divider(thickness: 4),
-                        FutureBuilder<DocumentSnapshot>(
-                          future: FirebaseFirestore.instance
-                              .collection("users")
-                              .doc(orderByUser)
-                              .collection("userAddress")
-                              .doc(dataMap["addressID"])
-                              .get(),
-                          builder: (c, snapshot) {
-                            return snapshot.hasData
-                                ? ShipmentaddressdesignOne(
-                                    model: Address.fromJson(snapshot.data!
-                                        .data()! as Map<String, dynamic>),
-                                    orderStatus: orderStatus,
-                                    orderId: widget.orderID,
-                                    sellerId: sellerId,
-                                    orderByUser: orderByUser,
-                                  )
-                                : Center(
-                                    child: circularProgress(),
-                                  );
-                          },
-                        )
+                        orderByUser.isNotEmpty
+                            ? FutureBuilder<DocumentSnapshot>(
+                                future: FirebaseFirestore.instance
+                                    .collection("users")
+                                    .doc(orderByUser)
+                                    .collection("userAddress")
+                                    .doc(dataMap["addressID"])
+                                    .get(),
+                                builder: (c, snapshot) {
+                                  return snapshot.hasData
+                                      ? ShipmentaddressdesignOne(
+                                          model: Address.fromJson(snapshot.data!
+                                              .data()! as Map<String, dynamic>),
+                                          orderStatus: orderStatus,
+                                          orderId: widget.orderID,
+                                          sellerId: sellerId,
+                                          orderByUser: orderByUser,
+                                        )
+                                      : Center(
+                                          child: circularProgress(),
+                                        );
+                                },
+                              )
+                            : const Center(
+                                child: Text("Loading address information..."),
+                              ),
                       ],
                     )
                   : Center(

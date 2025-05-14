@@ -73,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen>
               pinned: true,
               backgroundColor: Colors.transparent,
               elevation: 0,
-              expandedHeight: 220,
+              expandedHeight: 150,
               flexibleSpace: FlexibleSpaceBar(
                 background: FadeTransition(
                   opacity: _fadeAnimation,
@@ -96,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ],
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+                      padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.end,

@@ -83,7 +83,10 @@ class _ItemsUploadScreenState extends State<ItemsUploadScreen>
 
         try {
           if (useImageUrl) {
-            await saveInfoWithUrl(imageUrlController.text.trim());
+            String imageUrl = imageUrlController.text.trim();
+            // Format URL if needed
+            imageUrl = _formatImageUrl(imageUrl);
+            await saveInfoWithUrl(imageUrl);
           } else {
             String imageBase64 = await convertImageToBase64(File(imageXFile!.path));
             await saveInfo(imageBase64);
@@ -112,6 +115,18 @@ class _ItemsUploadScreenState extends State<ItemsUploadScreen>
         ),
       );
     }
+  }
+
+  String _formatImageUrl(String url) {
+    // Remove any whitespace
+    url = url.trim();
+    
+    // If URL doesn't start with http:// or https://, add https://
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://$url';
+    }
+    
+    return url;
   }
 
   Future<String> convertImageToBase64(File imageFile) async {
@@ -204,20 +219,6 @@ class _ItemsUploadScreenState extends State<ItemsUploadScreen>
             borderRadius: BorderRadius.circular(12),
           ),
           children: [
-            // SimpleDialogOption(
-            //   child: Text(
-            //     "Capture with Camera",
-            //     style: GoogleFonts.poppins(color: Colors.grey.shade700),
-            //   ),
-            //   onPressed: captureImageWithCamera,
-            // ),
-            // SimpleDialogOption(
-            //   child: Text(
-            //     "Select from Gallery",
-            //     style: GoogleFonts.poppins(color: Colors.grey.shade700),
-            //   ),
-            //   onPressed: pickImageFromGallery,
-            // ),
             SimpleDialogOption(
               child: Text(
                 "Enter Image URL",
@@ -226,6 +227,7 @@ class _ItemsUploadScreenState extends State<ItemsUploadScreen>
               onPressed: () {
                 Navigator.pop(context);
                 setState(() => useImageUrl = true);
+                _showImageUrlDialog();
               },
             ),
             SimpleDialogOption(
@@ -246,30 +248,69 @@ class _ItemsUploadScreenState extends State<ItemsUploadScreen>
     );
   }
 
-  Future<void> captureImageWithCamera() async {
-    Navigator.pop(context);
-    final pickedFile = await _picker.pickImage(
-      source: ImageSource.camera,
-      maxHeight: 720,
-      maxWidth: 1280,
+  void _showImageUrlDialog() {
+    showDialog(
+      context: context,
+      builder: (c) {
+        return AlertDialog(
+          title: Text(
+            "Enter Image URL",
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFFFFA726),
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: imageUrlController,
+                decoration: InputDecoration(
+                  hintText: "example.com/image.jpg",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(Icons.link),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "You can enter:\n• Full URL (https://example.com/image.jpg)\n• Domain only (example.com/image.jpg)",
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                "Cancel",
+                style: GoogleFonts.poppins(color: Colors.red),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                if (imageUrlController.text.isNotEmpty) {
+                  Navigator.pop(context);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please enter an image URL")),
+                  );
+                }
+              },
+              child: Text(
+                "OK",
+                style: GoogleFonts.poppins(color: const Color(0xFFFFA726)),
+              ),
+            ),
+          ],
+        );
+      },
     );
-    setState(() {
-      imageXFile = pickedFile;
-      useImageUrl = false;
-    });
-  }
-
-  Future<void> pickImageFromGallery() async {
-    Navigator.pop(context);
-    final pickedFile = await _picker.pickImage(
-      source: ImageSource.gallery,
-      maxHeight: 720,
-      maxWidth: 1280,
-    );
-    setState(() {
-      imageXFile = pickedFile;
-      useImageUrl = false;
-    });
   }
 
   Widget defaultScreen() {

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,6 +21,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controllerAnim;
   late Animation<double> _fadeAnimation;
+  Map<String, dynamic>? riderData;
 
   @override
   void initState() {
@@ -39,12 +41,30 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
     getPerParcelDeliveryAmount();
     getRiderPreviousEarnings();
+    getRiderData();
   }
 
   @override
   void dispose() {
     _controllerAnim.dispose();
     super.dispose();
+  }
+
+  getRiderData() {
+    String? riderId = sharedPreferences?.getString("uid");
+    if (riderId != null) {
+      FirebaseFirestore.instance
+          .collection("riders")
+          .doc(riderId)
+          .get()
+          .then((snap) {
+        if (snap.exists && snap.data() != null) {
+          setState(() {
+            riderData = snap.data();
+          });
+        }
+      });
+    }
   }
 
   getRiderPreviousEarnings() {
@@ -172,7 +192,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               pinned: true,
               backgroundColor: Colors.transparent,
               elevation: 0,
-              expandedHeight: 200,
+              expandedHeight: 220,
+              automaticallyImplyLeading: false,
               flexibleSpace: FlexibleSpaceBar(
                 background: FadeTransition(
                   opacity: _fadeAnimation,
@@ -193,10 +214,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       ],
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+                      padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           Text(
                             'Welcome $userName',
@@ -215,52 +235,94 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               fontWeight: FontWeight.w500,
                             ),
                           ),
+                          const SizedBox(height: 20),
+                          // Profile Section
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.9),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.all(15),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.amber,
+                                      width: 3,
+                                    ),
+                                  ),
+                                  child: ClipOval(
+                                    child: sharedPreferences?.getString("photoUrl") != null
+                                        ? Image.memory(
+                                            base64Decode(sharedPreferences!.getString("photoUrl")!),
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Container(
+                                                color: Colors.grey.shade200,
+                                                child: Icon(
+                                                  Icons.person,
+                                                  size: 30,
+                                                  color: Colors.grey.shade400,
+                                                ),
+                                              );
+                                            },
+                                          )
+                                        : Container(
+                                            color: Colors.grey.shade200,
+                                            child: Icon(
+                                              Icons.person,
+                                              size: 30,
+                                              color: Colors.grey.shade400,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(width: 15),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        sharedPreferences?.getString("name") ?? "Rider",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        sharedPreferences?.getString("email") ?? "No email",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
                 ),
               ),
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 15),
-                  child: GestureDetector(
-                    onTap: () {
-                      firebaseAuth.signOut().then((value) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginScreen()),
-                        );
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [Colors.amber, Colors.orange],
-                        ),
-                      ),
-                      child: const Icon(Icons.logout, color: Colors.white),
-                    ),
-                  ),
-                ),
-              ],
             ),
-            // Dashboard Items
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Your Dashboard',
-                  style: GoogleFonts.poppins(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-            ),
+            // Dashboard Grid
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverGrid(
@@ -282,6 +344,52 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.amber, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

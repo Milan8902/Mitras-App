@@ -30,31 +30,144 @@ class OrderCard extends StatelessWidget {
           ),
         );
       },
-      child: AnimationLimiter(
-        child: ListView.builder(
-          itemCount: itemCount,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemBuilder: (context, index) {
-            Items model = Items.fromJson(
-              data![index].data()! as Map<String, dynamic>,
+      child: FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance
+            .collection("orders")
+            .doc(orderID)
+            .get(),
+        builder: (context, orderSnapshot) {
+          if (!orderSnapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!orderSnapshot.data!.exists) {
+            return const Center(
+              child: Text("Order not found"),
             );
-            return AnimationConfiguration.staggeredList(
-              position: index,
-              duration: const Duration(milliseconds: 500),
-              child: SlideAnimation(
-                verticalOffset: 50.0,
-                child: FadeInAnimation(
-                  child: placedOrderDesignWidget(
-                    model,
-                    context,
-                    seperateQuantitiesList![index],
+          }
+
+          Map<String, dynamic>? orderData = orderSnapshot.data!.data() as Map<String, dynamic>?;
+          if (orderData == null) {
+            return const Center(
+              child: Text("Invalid order data"),
+            );
+          }
+
+          String? orderByUser = orderData["orderBy"]?.toString();
+          if (orderByUser == null || orderByUser.isEmpty) {
+            return const Center(
+              child: Text("User information not available"),
+            );
+          }
+
+          return FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance
+                .collection("users")
+                .doc(orderByUser)
+                .get(),
+            builder: (context, userSnapshot) {
+              if (!userSnapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (!userSnapshot.data!.exists) {
+                return const Center(
+                  child: Text("User not found"),
+                );
+              }
+
+              Map<String, dynamic>? userData = userSnapshot.data!.data() as Map<String, dynamic>?;
+              if (userData == null) {
+                return const Center(
+                  child: Text("Invalid user data"),
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // User Details Section
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.person, color: Colors.orange.shade700),
+                            const SizedBox(width: 8),
+                            Text(
+                              userData["name"]?.toString() ?? "User",
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.phone, color: Colors.orange.shade700),
+                            const SizedBox(width: 8),
+                            Text(
+                              userData["phone"]?.toString() ?? "No phone number",
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-            );
-          },
-        ),
+                  // Order Items Section
+                  if (itemCount != null && data != null && seperateQuantitiesList != null)
+                    AnimationLimiter(
+                      child: ListView.builder(
+                        itemCount: itemCount,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemBuilder: (context, index) {
+                          if (index >= data!.length || index >= seperateQuantitiesList!.length) {
+                            return const SizedBox.shrink();
+                          }
+                          
+                          Items model = Items.fromJson(
+                            data![index].data()! as Map<String, dynamic>,
+                          );
+                          return AnimationConfiguration.staggeredList(
+                            position: index,
+                            duration: const Duration(milliseconds: 500),
+                            child: SlideAnimation(
+                              verticalOffset: 50.0,
+                              child: FadeInAnimation(
+                                child: placedOrderDesignWidget(
+                                  model,
+                                  context,
+                                  seperateQuantitiesList![index],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    )
+                  else
+                    const Center(
+                      child: Text("No items in this order"),
+                    ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }
