@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sellers_food_app/global/global.dart';
 import 'package:sellers_food_app/screens/home_screen.dart';
 import '../models/items.dart';
+import 'package:intl/intl.dart';
 
 class ItemDetailsScreen extends StatefulWidget {
   final Items? model;
@@ -277,6 +278,120 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen>
                   ),
                 ),
               ),
+              // User Information Section
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Customer Information",
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFFF57C00),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection("orders")
+                          .where("sellerUID", isEqualTo: sharedPreferences!.getString("uid"))
+                          .where("items", arrayContains: widget.model!.itemID)
+                          .orderBy("orderTime", descending: true)
+                          .limit(1)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                          // Get the most recent order
+                          final orderDoc = snapshot.data!.docs.first;
+                          final orderData = orderDoc.data() as Map<String, dynamic>;
+                          final orderByUser = orderData["orderBy"] as String?;
+                          final orderTime = orderData["orderTime"] as int?;
+
+                          if (orderByUser != null) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                FutureBuilder<DocumentSnapshot>(
+                                  future: FirebaseFirestore.instance
+                                      .collection("users")
+                                      .doc(orderByUser)
+                                      .get(),
+                                  builder: (context, userSnapshot) {
+                                    if (userSnapshot.hasData && userSnapshot.data != null && userSnapshot.data!.exists) {
+                                      final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
+                                      if (userData != null) {
+                                        return Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            _buildInfoRow("Name", userData["userName"] ?? "N/A"),
+                                            const SizedBox(height: 8),
+                                            _buildInfoRow("Email", userData["userEmail"] ?? "N/A"),
+                                            const SizedBox(height: 8),
+                                            _buildInfoRow("Phone", userData["userPhone"] ?? "N/A"),
+                                            const SizedBox(height: 12),
+                                            if (orderTime != null)
+                                              Text(
+                                                "Last ordered: ${DateFormat("dd MMM yyyy, hh:mm a").format(DateTime.fromMillisecondsSinceEpoch(orderTime))}",
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[600],
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                              ),
+                                          ],
+                                        );
+                                      }
+                                    }
+                                    return const Center(child: CircularProgressIndicator());
+                                  },
+                                ),
+                              ],
+                            );
+                          }
+                        }
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Colors.grey[600], size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  "No orders found for this item",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
 
               // Details Section
               Padding(
@@ -448,6 +563,34 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(
+            "$label:",
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

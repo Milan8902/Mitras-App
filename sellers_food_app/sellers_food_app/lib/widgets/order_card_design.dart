@@ -72,13 +72,23 @@ Widget placedOrderDesignWidget(
         // Image
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            model.imageUrl!,
-            width: 80,
-            height: 80,
-            fit: BoxFit.cover,
-            errorBuilder:
-                (context, error, stackTrace) => Container(
+          child: model.imageUrl != null && model.imageUrl!.isNotEmpty
+              ? Image.network(
+                  model.imageUrl!,
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: 80,
+                    height: 80,
+                    color: Colors.grey.shade200,
+                    child: const Icon(
+                      Icons.image_not_supported,
+                      color: Colors.grey,
+                    ),
+                  ),
+                )
+              : Container(
                   width: 80,
                   height: 80,
                   color: Colors.grey.shade200,
@@ -87,7 +97,6 @@ Widget placedOrderDesignWidget(
                     color: Colors.grey,
                   ),
                 ),
-          ),
         ),
         const SizedBox(width: 12),
         // Details
@@ -96,7 +105,7 @@ Widget placedOrderDesignWidget(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                model.title!,
+                model.title ?? 'Unnamed Item',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -107,7 +116,7 @@ Widget placedOrderDesignWidget(
               ),
               const SizedBox(height: 4),
               Text(
-                "\$${model.price}",
+                "\$${model.price?.toString() ?? '0.00'}",
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

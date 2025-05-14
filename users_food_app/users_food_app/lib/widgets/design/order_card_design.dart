@@ -352,27 +352,32 @@ Widget placedOrderDesignWidget(
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              model.imageUrl!,
-              width: 70,
-              height: 70,
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Center(
-                  child: CircularProgressIndicator(
-                    value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                        : null,
-                    color: const Color(0xFFF57C00),
+            child: model.imageUrl != null && model.imageUrl!.isNotEmpty
+                ? Image.network(
+                    model.imageUrl!,
+                    width: 70,
+                    height: 70,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                              : null,
+                          color: const Color(0xFFF57C00),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.fastfood, color: Colors.grey),
+                    ),
+                  )
+                : Container(
+                    color: Colors.grey[200],
+                    child: const Icon(Icons.fastfood, color: Colors.grey),
                   ),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: Colors.grey[200],
-                child: const Icon(Icons.fastfood, color: Colors.grey),
-              ),
-            ),
           ),
         ),
         const SizedBox(width: 12),

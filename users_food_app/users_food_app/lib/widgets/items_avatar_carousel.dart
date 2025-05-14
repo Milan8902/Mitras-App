@@ -56,10 +56,11 @@ class _ItemsAvatarCarouselState extends State<ItemsAvatarCarousel> {
               scrollDirection: Axis.horizontal,
             ),
             items: snapshot.data!.docs.map((document) {
-              String imageUrl = document['imageUrl'] ?? '';
-              String itemName = document['title'] ?? 'Unknown Item';
-              String price = document['price']?.toString() ?? '0';
-              String sellerUID = document['sellerUID'] ?? '';
+              Map<String, dynamic> data = document.data() as Map<String, dynamic>;
+              String imageUrl = data['imageUrl'] ?? '';
+              String itemName = data['title'] ?? 'Unknown Item';
+              String price = data['price']?.toString() ?? '0';
+              String sellerUID = data['sellerUID'] ?? '';
               String itemID = document.id;
 
               return GestureDetector(
@@ -68,7 +69,7 @@ class _ItemsAvatarCarouselState extends State<ItemsAvatarCarousel> {
                     context,
                     MaterialPageRoute(
                       builder: (c) => ItemDetailsScreen(
-                        model: Items.fromJson(document.data() as Map<String, dynamic>),
+                        model: Items.fromJson(data),
                       ),
                     ),
                   );

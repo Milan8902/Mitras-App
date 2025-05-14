@@ -107,6 +107,62 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         const Divider(
                           thickness: 4,
                         ),
+                        // User Information Section
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Customer Information",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              FutureBuilder<DocumentSnapshot>(
+                                future: FirebaseFirestore.instance
+                                    .collection("users")
+                                    .doc(orderByUser)
+                                    .get(),
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
+                                    final userData = snapshot.data!.data() as Map<String, dynamic>?;
+                                    if (userData != null) {
+                                      return Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          _buildInfoRow("Name", userData["userName"] ?? "N/A"),
+                                          const SizedBox(height: 8),
+                                          _buildInfoRow("Email", userData["userEmail"] ?? "N/A"),
+                                          const SizedBox(height: 8),
+                                          _buildInfoRow("Phone", userData["userPhone"] ?? "N/A"),
+                                        ],
+                                      );
+                                    }
+                                  }
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
                         orderStatus != "ended"
                             ? Image.asset("images/packing.png")
                             : Image.asset("images/delivered.jpg"),
@@ -147,6 +203,34 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            "$label:",
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
