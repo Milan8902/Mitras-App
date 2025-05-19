@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,9 +15,15 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   sharedPreferences = await SharedPreferences.getInstance();
+  
+  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Configure Firebase Storage
+  FirebaseStorage.instance.setMaxUploadRetryTime(const Duration(seconds: 30));
+  FirebaseStorage.instance.setMaxOperationRetryTime(const Duration(seconds: 30));
 
   runApp(const MyApp());
 }

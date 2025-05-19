@@ -8,6 +8,7 @@ class CustomTextField extends StatelessWidget {
   bool? isObsecre;
   bool? enabled = true;
   final VoidCallback? onVisibilityChanged;
+  final String? Function(String?)? validator;
 
   CustomTextField({
     Key? key,
@@ -17,6 +18,7 @@ class CustomTextField extends StatelessWidget {
     this.hintText,
     this.isObsecre,
     this.onVisibilityChanged,
+    this.validator,
   }) : super(key: key);
 
   @override
@@ -40,6 +42,7 @@ class CustomTextField extends StatelessWidget {
         controller: controller,
         obscureText: isObsecre!,
         cursorColor: Theme.of(context).primaryColor,
+        validator: validator,
         decoration: InputDecoration(
           hintText: hintText,
           labelText: hintText,

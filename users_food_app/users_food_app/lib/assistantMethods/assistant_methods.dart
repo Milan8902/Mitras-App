@@ -95,43 +95,83 @@ separateItemQuantities() {
 }
 
 //item count
-addItemToCart(String? foodItemId, BuildContext context, int itemCounter) {
-  List<String>? tempList = sharedPreferences!.getStringList("userCart");
-  tempList!.add(foodItemId! + ":$itemCounter"); //this format = 34567654:7
+addItemToCart(String? foodItemId, BuildContext context, int itemCounter) async {
+  try {
+    List<String>? tempList = sharedPreferences!.getStringList("userCart");
+    tempList!.add(foodItemId! + ":$itemCounter"); //this format = 34567654:7
 
-  FirebaseFirestore.instance
-      .collection("users")
-      .doc(firebaseAuth.currentUser!.uid)
-      .update(
-    {
-      "userCart": tempList,
-    },
-  ).then(
-    (value) {
-      Fluttertoast.showToast(msg: "Item Added Successfully");
+    // Get reference to the user document
+    final userDocRef = FirebaseFirestore.instance
+        .collection("users")
+        .doc(firebaseAuth.currentUser!.uid);
 
-      sharedPreferences!.setStringList("userCart", tempList);
+    // Check if document exists
+    final docSnapshot = await userDocRef.get();
+    
+    if (!docSnapshot.exists) {
+      // Create document if it doesn't exist
+      await userDocRef.set({
+        "userCart": tempList,
+        "uid": firebaseAuth.currentUser!.uid,
+        "email": firebaseAuth.currentUser!.email,
+        "status": "approved",
+      });
+    } else {
+      // Update existing document
+      await userDocRef.update({
+        "userCart": tempList,
+      });
+    }
 
-      //update the badge
-      Provider.of<CartItemCounter>(context, listen: false)
-          .displayCartListItemsNumber();
-    },
-  );
+    Fluttertoast.showToast(msg: "Item Added Successfully");
+    await sharedPreferences!.setStringList("userCart", tempList);
+
+    //update the badge
+    Provider.of<CartItemCounter>(context, listen: false)
+        .displayCartListItemsNumber();
+  } catch (e) {
+    print("Error adding item to cart: $e");
+    Fluttertoast.showToast(msg: "Failed to add item to cart");
+  }
 }
 
 //Clear Cart
-clearCartNow(context) {
-  sharedPreferences!.setStringList("userCart", ['garbageValue']);
-  List<String>? emptyList = sharedPreferences!.getStringList("userCart");
+clearCartNow(context) async {
+  try {
+    List<String> emptyList = ['garbageValue'];
+    await sharedPreferences!.setStringList("userCart", emptyList);
 
-  //first we update it in firestore
-  FirebaseFirestore.instance
-      .collection("users")
-      .doc(firebaseAuth.currentUser!.uid)
-      .update({"userCart": emptyList}).then((value) {
-    //then in local
-    sharedPreferences!.setStringList("userCart", emptyList!);
+    // Get reference to the user document
+    final userDocRef = FirebaseFirestore.instance
+        .collection("users")
+        .doc(firebaseAuth.currentUser!.uid);
+
+    // Check if document exists
+    final docSnapshot = await userDocRef.get();
+    
+    if (!docSnapshot.exists) {
+      // Create document if it doesn't exist
+      await userDocRef.set({
+        "userCart": emptyList,
+        "uid": firebaseAuth.currentUser!.uid,
+        "email": firebaseAuth.currentUser!.email,
+        "status": "approved",
+      });
+    } else {
+      // Update existing document
+      await userDocRef.update({
+        "userCart": emptyList,
+      });
+    }
+
+    // Update local storage
+    await sharedPreferences!.setStringList("userCart", emptyList);
+    
+    // Update the badge
     Provider.of<CartItemCounter>(context, listen: false)
         .displayCartListItemsNumber();
-  });
+  } catch (e) {
+    print("Error clearing cart: $e");
+    Fluttertoast.showToast(msg: "Failed to clear cart");
+  }
 }
