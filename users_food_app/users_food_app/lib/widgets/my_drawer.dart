@@ -58,12 +58,7 @@ class MyDrawer extends StatelessWidget {
                             ],
                           ),
                           child: CircleAvatar(
-                            //we get the profile image from sharedPreferences (global.dart)
-                            backgroundImage: sharedPreferences!.getString("photoUrl") != null
-                                ? (sharedPreferences!.getString("photoUrl")!.startsWith('http')
-                                    ? NetworkImage(sharedPreferences!.getString("photoUrl")!)
-                                    : MemoryImage(base64Decode(sharedPreferences!.getString("photoUrl")!)))
-                                : const AssetImage('images/user.png') as ImageProvider,
+                            backgroundImage: _getProfileImage(),
                             onBackgroundImageError: (exception, stackTrace) {
                               print('Error loading profile image: $exception');
                             },
@@ -73,9 +68,8 @@ class MyDrawer extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  //we get the user name from sharedPreferences (global.dart)
                   Text(
-                    sharedPreferences!.getString("name")!,
+                    sharedPreferences?.getString("name") ?? "User",
                     style: GoogleFonts.lato(
                       textStyle: const TextStyle(
                         fontSize: 25,
@@ -378,6 +372,28 @@ class MyDrawer extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  ImageProvider _getProfileImage() {
+    if (sharedPreferences == null) {
+      return const AssetImage('images/user.png');
+    }
+
+    final photoUrl = sharedPreferences!.getString("photoUrl");
+    if (photoUrl == null || photoUrl.isEmpty) {
+      return const AssetImage('images/user.png');
+    }
+
+    try {
+      if (photoUrl.startsWith('http')) {
+        return NetworkImage(photoUrl);
+      } else {
+        return MemoryImage(base64Decode(photoUrl));
+      }
+    } catch (e) {
+      print('Error processing profile image: $e');
+      return const AssetImage('images/user.png');
+    }
   }
 
   Widget _buildContactItem({

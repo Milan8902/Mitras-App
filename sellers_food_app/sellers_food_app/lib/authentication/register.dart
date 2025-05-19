@@ -1,508 +1,3 @@
-// // ignore_for_file: non_constant_identifier_names, library_prefixes
-
-// import 'dart:io';
-
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:flutter/gestures.dart';
-// import 'package:flutter/material.dart';
-// import 'package:geocoding/geocoding.dart';
-// import 'package:geolocator/geolocator.dart';
-// import 'package:image_picker/image_picker.dart';
-// import 'package:sellers_food_app/screens/home_screen.dart';
-// import 'package:sellers_food_app/widgets/custom_text_field.dart';
-// import 'package:sellers_food_app/widgets/error_dialog.dart';
-// import 'package:sellers_food_app/widgets/loading_dialog.dart';
-// import 'package:firebase_storage/firebase_storage.dart' as fStorage;
-// import 'package:shared_preferences/shared_preferences.dart';
-
-// import '../global/global.dart';
-// import '../widgets/header_widget.dart';
-// import 'login.dart';
-
-// class RegisterScreen extends StatefulWidget {
-//   const RegisterScreen({Key? key}) : super(key: key);
-
-//   @override
-//   _RegisterScreenState createState() => _RegisterScreenState();
-// }
-
-// class _RegisterScreenState extends State<RegisterScreen> {
-//   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-//   TextEditingController nameController = TextEditingController();
-//   TextEditingController emailController = TextEditingController();
-//   TextEditingController passwordController = TextEditingController();
-//   TextEditingController confirmpasswordController = TextEditingController();
-//   TextEditingController phoneController = TextEditingController();
-//   TextEditingController locationController = TextEditingController();
-
-//   //image picker
-//   XFile? imageXFile;
-//   final ImagePicker _picker = ImagePicker();
-
-//   //location
-//   Position? position;
-//   List<Placemark>? placeMarks;
-
-//   //address name variable
-//   String completeAddress = "";
-
-//   //seller image url
-//   String sellerImageUrl = "";
-
-//   //function for getting current location
-//   Future<Position?> getCurrenLocation() async {
-//     bool serviceEnabled;
-//     LocationPermission permission;
-
-//     serviceEnabled = await Geolocator.isLocationServiceEnabled();
-//     if (!serviceEnabled) {
-//       return Future.error('Location services are disabled.');
-//     }
-
-//     permission = await Geolocator.checkPermission();
-//     if (permission == LocationPermission.denied) {
-//       permission = await Geolocator.requestPermission();
-//       if (permission == LocationPermission.denied) {
-//         return Future.error('Location permissions are denied');
-//       }
-//     }
-
-//     if (permission == LocationPermission.deniedForever) {
-//       return Future.error(
-//         'Location permissions are permanently denied, we cannot request permissions.',
-//       );
-//     }
-
-//     Position newPosition = await Geolocator.getCurrentPosition(
-//       desiredAccuracy: LocationAccuracy.high,
-//     );
-
-//     position = newPosition;
-
-//     placeMarks = await placemarkFromCoordinates(
-//       position!.latitude,
-//       position!.longitude,
-//     );
-
-//     Placemark pMark = placeMarks![0];
-
-//     completeAddress =
-//         '${pMark.thoroughfare}, ${pMark.locality}, ${pMark.subAdministrativeArea}, ${pMark.administrativeArea}, ${pMark.country}';
-
-//     locationController.text = completeAddress;
-//     return null;
-//   }
-
-//   //function for getting image
-//   Future<void> _getImage() async {
-//     imageXFile = await _picker.pickImage(source: ImageSource.gallery);
-
-//     setState(() {
-//       imageXFile;
-//     });
-//   }
-
-//   Future<void> signUpFormValidation() async {
-//     if (imageXFile == null) {
-//       showDialog(
-//         context: context,
-//         builder: (c) => const ErrorDialog(message: "Please select an image"),
-//       );
-//       return;
-//     }
-
-//     if (passwordController.text != confirmpasswordController.text) {
-//       showDialog(
-//         context: context,
-//         builder: (c) => const ErrorDialog(message: "Passwords do not match"),
-//       );
-//       return;
-//     }
-
-//     if (emailController.text.isEmpty ||
-//         nameController.text.isEmpty ||
-//         phoneController.text.isEmpty ||
-//         locationController.text.isEmpty) {
-//       showDialog(
-//         context: context,
-//         builder:
-//             (c) => const ErrorDialog(
-//               message: "Please fill all the required fields",
-//             ),
-//       );
-//       return;
-//     }
-
-//     showDialog(
-//       context: context,
-//       builder: (c) => const LoadingDialog(message: "Registering Account..."),
-//     );
-
-//     try {
-//       String fileName = DateTime.now().millisecondsSinceEpoch.toString();
-//       fStorage.Reference reference = fStorage.FirebaseStorage.instance
-//           .ref()
-//           .child("sellers")
-//           .child(fileName);
-
-//       fStorage.UploadTask uploadTask = reference.putFile(
-//         File(imageXFile!.path),
-//       );
-//       fStorage.TaskSnapshot taskSnapshot = await uploadTask.whenComplete(() {});
-//       sellerImageUrl = await taskSnapshot.ref.getDownloadURL();
-
-//       // Now proceed with Firebase Authentication
-//       AuthenticateSellerAndSignUp();
-//     } catch (e) {
-//       Navigator.pop(context);
-//       showDialog(
-//         context: context,
-//         builder:
-//             (c) =>
-//                 ErrorDialog(message: "Error uploading image: ${e.toString()}"),
-//       );
-//     }
-//   }
-
-//   //Form Validation
-//   // Future<void> signUpFormValidation() async {
-//   //   //checking if user selected image
-//   //   if (imageXFile == null) {
-//   //     setState(
-//   //       () {
-//   //         // imageXFile == "images/bg.png";
-//   //         showDialog(
-//   //           context: context,
-//   //           builder: (c) {
-//   //             return const ErrorDialog(
-//   //               message: "Please select an image",
-//   //             );
-//   //           },
-//   //         );
-//   //       },
-//   //     );
-//   //   } else {
-//   //     if (passwordController.text == confirmpasswordController.text) {
-//   //       //nested if (cheking if controllers empty or not)
-//   //       if (confirmpasswordController.text.isNotEmpty &&
-//   //           emailController.text.isNotEmpty &&
-//   //           nameController.text.isNotEmpty &&
-//   //           phoneController.text.isNotEmpty &&
-//   //           locationController.text.isNotEmpty) {
-//   //         //start uploading image
-//   //         showDialog(
-//   //           context: context,
-//   //           builder: (c) {
-//   //             return const LoadingDialog(
-//   //               message: "Registering Account",
-//   //             );
-//   //           },
-//   //         );
-
-//   //         String fileName = DateTime.now().millisecondsSinceEpoch.toString();
-//   //         fStorage.Reference reference = fStorage.FirebaseStorage.instance
-//   //             .ref()
-//   //             .child("sellers")
-//   //             .child(fileName);
-//   //         fStorage.UploadTask uploadTask =
-//   //             reference.putFile(File(imageXFile!.path));
-//   //         fStorage.TaskSnapshot taskSnapshot =
-//   //             await uploadTask.whenComplete(() {});
-//   //         await taskSnapshot.ref.getDownloadURL().then((url) {
-//   //           sellerImageUrl = url;
-
-//   //           // save info to firestore
-//   //           AuthenticateSellerAndSignUp();
-//   //         });
-//   //       }
-//   //       //if there is empty place show this message
-//   //       else {
-//   //         showDialog(
-//   //           context: context,
-//   //           builder: (c) {
-//   //             return const ErrorDialog(
-//   //               message: "Please fill the required info for Registration. ",
-//   //             );
-//   //           },
-//   //         );
-//   //       }
-//   //     } else {
-//   //       //show an error if passwords do not match
-//   //       showDialog(
-//   //         context: context,
-//   //         builder: (c) {
-//   //           return const ErrorDialog(
-//   //             message: "Password do not match",
-//   //           );
-//   //         },
-//   //       );
-//   //     }
-//   //   }
-//   // }
-
-//   void AuthenticateSellerAndSignUp() async {
-//     User? currentUser;
-//     await firebaseAuth
-//         .createUserWithEmailAndPassword(
-//           email: emailController.text.trim(),
-//           password: passwordController.text.trim(),
-//         )
-//         .then((auth) {
-//           currentUser = auth.user;
-//         })
-//         .catchError((error) {
-//           Navigator.pop(context);
-//           showDialog(
-//             context: context,
-//             builder: (c) {
-//               return ErrorDialog(message: error.message.toString());
-//             },
-//           );
-//         });
-
-//     if (currentUser != null) {
-//       saveDataToFirestore(currentUser!).then((value) {
-//         Navigator.pop(context);
-//         //send user to Home Screen
-//         Route newRoute = MaterialPageRoute(builder: (c) => const HomeScreen());
-//         Navigator.pushReplacement(context, newRoute);
-//       });
-//     }
-//   }
-
-//   //saving seller information to firestore
-//   Future saveDataToFirestore(User currentUser) async {
-//     FirebaseFirestore.instance.collection("sellers").doc(currentUser.uid).set({
-//       "sellerUID": currentUser.uid,
-//       "sellerEmail": currentUser.email,
-//       "sellerName": nameController.text.trim(),
-//       "sellerAvatarUrl": sellerImageUrl,
-//       "phone": phoneController.text.trim(),
-//       "address": completeAddress,
-//       "status": "approved",
-//       "earnings": 0.0,
-//       "lat": position!.latitude,
-//       "lng": position!.longitude,
-//     });
-
-//     // save data locally (to access data easly from phone storage)
-//     sharedPreferences = await SharedPreferences.getInstance();
-//     await sharedPreferences!.setString("uid", currentUser.uid);
-//     await sharedPreferences!.setString("email", currentUser.email.toString());
-//     await sharedPreferences!.setString("name", nameController.text.trim());
-//     await sharedPreferences!.setString("photoUrl", sellerImageUrl);
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       body: Container(
-//         height: MediaQuery.of(context).size.height,
-//         decoration: const BoxDecoration(
-//           gradient: LinearGradient(
-//             begin: FractionalOffset(-2.0, 0.0),
-//             end: FractionalOffset(5.0, -1.0),
-//             colors: [Color(0xFFFFFFFF), Color(0xFFFAC898)],
-//           ),
-//         ),
-//         child: SingleChildScrollView(
-//           child: Column(
-//             mainAxisSize: MainAxisSize.max,
-//             children: [
-//               Stack(
-//                 children: [
-//                   const SizedBox(
-//                     height: 150,
-//                     child: HeaderWidget(150, false, Icons.add),
-//                   ),
-//                   Container(
-//                     decoration: BoxDecoration(
-//                       shape: BoxShape.circle,
-//                       boxShadow: [
-//                         BoxShadow(
-//                           color: Colors.black.withOpacity(0.2),
-//                           blurRadius: 20,
-//                           offset: const Offset(0, 5),
-//                         ),
-//                       ],
-//                     ),
-//                     margin: const EdgeInsets.fromLTRB(25, 50, 25, 10),
-//                     padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-//                     alignment: Alignment.center,
-//                     child: InkWell(
-//                       onTap: () {
-//                         _getImage();
-//                       },
-//                       child: CircleAvatar(
-//                         radius: MediaQuery.of(context).size.width * 0.20,
-//                         backgroundColor: Colors.white,
-//                         backgroundImage:
-//                             imageXFile == null
-//                                 ? null
-//                                 : FileImage(File(imageXFile!.path)),
-//                         child:
-//                             imageXFile == null
-//                                 ? Icon(
-//                                   Icons.person_add_alt_1,
-//                                   size:
-//                                       MediaQuery.of(context).size.width * 0.20,
-//                                   color: Colors.grey,
-//                                 )
-//                                 : null,
-//                       ),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//               const SizedBox(height: 10),
-//               Form(
-//                 key: _formKey,
-//                 child: Column(
-//                   children: [
-//                     CustomTextField(
-//                       data: Icons.person,
-//                       controller: nameController,
-//                       hintText: "Name",
-//                       isObsecre: false,
-//                     ),
-//                     CustomTextField(
-//                       data: Icons.email,
-//                       controller: emailController,
-//                       hintText: "Email",
-//                       isObsecre: false,
-//                     ),
-//                     CustomTextField(
-//                       data: Icons.lock,
-//                       controller: passwordController,
-//                       hintText: "Password",
-//                       isObsecre: true,
-//                     ),
-//                     CustomTextField(
-//                       data: Icons.lock,
-//                       controller: confirmpasswordController,
-//                       hintText: "Confirm password",
-//                       isObsecre: true,
-//                     ),
-//                     CustomTextField(
-//                       data: Icons.phone_android_outlined,
-//                       controller: phoneController,
-//                       hintText: "Phone nummber",
-//                       isObsecre: false,
-//                     ),
-//                     Row(
-//                       mainAxisAlignment: MainAxisAlignment.center,
-//                       children: [
-//                         CustomTextField(
-//                           data: Icons.my_location,
-//                           controller: locationController,
-//                           hintText: "Cafe/Restorant Address",
-//                           isObsecre: false,
-//                           enabled: false,
-//                         ),
-//                         Center(
-//                           child: IconButton(
-//                             onPressed: () {
-//                               getCurrenLocation();
-//                             },
-//                             icon: const Icon(Icons.location_on, size: 40),
-//                             color: Colors.red,
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//               const SizedBox(height: 30),
-//               Padding(
-//                 padding: const EdgeInsets.only(bottom: 30),
-//                 child: Container(
-//                   decoration: BoxDecoration(
-//                     boxShadow: const [
-//                       BoxShadow(
-//                         color: Colors.black26,
-//                         offset: Offset(0, 4),
-//                         blurRadius: 5.0,
-//                       ),
-//                     ],
-//                     gradient: const LinearGradient(
-//                       begin: Alignment.topLeft,
-//                       end: Alignment.bottomRight,
-//                       stops: [0.0, 1.0],
-//                       colors: [Colors.amber, Colors.black],
-//                     ),
-//                     color: Colors.deepPurple.shade300,
-//                     borderRadius: BorderRadius.circular(30),
-//                   ),
-//                   child: ElevatedButton(
-//                     style: ButtonStyle(
-//                       shape: MaterialStateProperty.all<RoundedRectangleBorder>(
-//                         RoundedRectangleBorder(
-//                           borderRadius: BorderRadius.circular(30.0),
-//                         ),
-//                       ),
-//                       minimumSize: MaterialStateProperty.all(
-//                         const Size(50, 50),
-//                       ),
-//                       backgroundColor: MaterialStateProperty.all(
-//                         Colors.transparent,
-//                       ),
-//                       shadowColor: MaterialStateProperty.all(
-//                         Colors.transparent,
-//                       ),
-//                     ),
-//                     child: Padding(
-//                       padding: const EdgeInsets.fromLTRB(40, 10, 40, 10),
-//                       child: Text(
-//                         'Sign Up'.toUpperCase(),
-//                         style: const TextStyle(
-//                           fontSize: 20,
-//                           fontWeight: FontWeight.bold,
-//                           color: Colors.white,
-//                         ),
-//                       ),
-//                     ),
-//                     onPressed: () {
-//                       signUpFormValidation();
-//                     },
-//                   ),
-//                 ),
-//               ),
-//               Container(
-//                 margin: const EdgeInsets.fromLTRB(10, 20, 10, 20),
-//                 child: Text.rich(
-//                   TextSpan(
-//                     children: [
-//                       const TextSpan(text: "Already have an account? "),
-//                       TextSpan(
-//                         text: 'Login',
-//                         recognizer:
-//                             TapGestureRecognizer()
-//                               ..onTap = () {
-//                                 Navigator.push(
-//                                   context,
-//                                   MaterialPageRoute(
-//                                     builder: (context) => const LoginScreen(),
-//                                   ),
-//                                 );
-//                               },
-//                         style: TextStyle(
-//                           fontWeight: FontWeight.bold,
-//                           color: Theme.of(context).primaryColor,
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
 import 'dart:io';
 import 'dart:convert';
 
@@ -513,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart' as fStorage;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../global/global.dart';
@@ -540,146 +36,334 @@ class _RegisterScreenState extends State<RegisterScreen> {
   TextEditingController locationController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  bool _isLoading = false;
 
   XFile? imageXFile;
   final ImagePicker _picker = ImagePicker();
 
   Position? position;
   List<Placemark>? placeMarks;
-
   String completeAddress = "";
   String sellerImageBase64 = "";
 
   Future<void> _getImage() async {
-    imageXFile = await _picker.pickImage(source: ImageSource.gallery);
-
-    if (imageXFile != null) {
-      final bytes = await imageXFile!.readAsBytes();
-      sellerImageBase64 = base64Encode(bytes);
+    try {
+      imageXFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+      
+      if (imageXFile != null) {
+        final bytes = await imageXFile!.readAsBytes();
+        sellerImageBase64 = base64Encode(bytes);
+        setState(() {});
+      }
+    } catch (e) {
+      print("Error picking image: $e");
+      showDialog(
+        context: context,
+        builder: (c) => ErrorDialog(
+          message: "Failed to pick image. Please try again.",
+        ),
+      );
     }
-
-    setState(() {});
   }
 
   Future<void> getCurrenLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return Future.error('Location services are disabled.');
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return Future.error('Location permissions are denied');
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        showDialog(
+          context: context,
+          builder: (c) => const ErrorDialog(
+            message: "Location services are disabled. Please enable location services to continue.",
+          ),
+        );
+        return;
       }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          showDialog(
+            context: context,
+            builder: (c) => const ErrorDialog(
+              message: "Location permission is required to get your address.",
+            ),
+          );
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        showDialog(
+          context: context,
+          builder: (c) => const ErrorDialog(
+            message: "Location permissions are permanently denied. Please enable location permissions in your device settings.",
+          ),
+        );
+        return;
+      }
+
+      showDialog(
+        context: context,
+        builder: (c) => const LoadingDialog(message: "Getting your location..."),
+      );
+
+      Position newPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        newPosition.latitude,
+        newPosition.longitude,
+      );
+
+      Navigator.pop(context);
+
+      if (placemarks.isNotEmpty) {
+        Placemark pMark = placemarks[0];
+        setState(() {
+          position = newPosition;
+          placeMarks = placemarks;
+          completeAddress = '${pMark.thoroughfare ?? ''}, ${pMark.locality ?? ''}, ${pMark.subAdministrativeArea ?? ''}, ${pMark.administrativeArea ?? ''}, ${pMark.country ?? ''}';
+          locationController.text = completeAddress;
+        });
+      } else {
+        showDialog(
+          context: context,
+          builder: (c) => const ErrorDialog(
+            message: "Could not get address from location. Please try again.",
+          ),
+        );
+      }
+    } catch (e) {
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      showDialog(
+        context: context,
+        builder: (c) => ErrorDialog(
+          message: "Error getting location: ${e.toString()}",
+        ),
+      );
     }
-
-    if (permission == LocationPermission.deniedForever) {
-      return Future.error('Location permissions are permanently denied.');
-    }
-
-    Position newPosition = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
-
-    position = newPosition;
-
-    placeMarks = await placemarkFromCoordinates(
-      position!.latitude,
-      position!.longitude,
-    );
-
-    Placemark pMark = placeMarks![0];
-    completeAddress =
-        '${pMark.thoroughfare}, ${pMark.locality}, ${pMark.subAdministrativeArea}, ${pMark.administrativeArea}, ${pMark.country}';
-    locationController.text = completeAddress;
   }
 
   Future<void> signUpFormValidation() async {
-    if (imageXFile == null || sellerImageBase64.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (c) => const ErrorDialog(message: "Please select an image"),
-      );
-      return;
-    }
+    try {
+      if (!_formKey.currentState!.validate()) {
+        return;
+      }
 
-    if (passwordController.text != confirmpasswordController.text) {
-      showDialog(
-        context: context,
-        builder: (c) => const ErrorDialog(message: "Passwords do not match"),
-      );
-      return;
-    }
+      if (imageXFile == null) {
+        showDialog(
+          context: context,
+          builder: (c) => const ErrorDialog(message: "Please select a profile image"),
+        );
+        return;
+      }
 
-    if (emailController.text.isEmpty ||
-        nameController.text.isEmpty ||
-        phoneController.text.isEmpty ||
-        locationController.text.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (c) => const ErrorDialog(
-            message: "Please fill all the required fields"),
-      );
-      return;
-    }
+      if (position == null || completeAddress.isEmpty) {
+        showDialog(
+          context: context,
+          builder: (c) => const ErrorDialog(message: "Please get your location first"),
+        );
+        return;
+      }
 
-    showDialog(
-      context: context,
-      builder: (c) => const LoadingDialog(message: "Registering Account..."),
-    );
-
-    AuthenticateSellerAndSignUp();
-  }
-
-  void AuthenticateSellerAndSignUp() async {
-    User? currentUser;
-    await firebaseAuth
-        .createUserWithEmailAndPassword(
-      email: emailController.text.trim(),
-      password: passwordController.text.trim(),
-    )
-        .then((auth) {
-      currentUser = auth.user;
-    }).catchError((error) {
-      Navigator.pop(context);
-      showDialog(
-        context: context,
-        builder: (c) {
-          return ErrorDialog(message: error.message.toString());
-        },
-      );
-    });
-
-    if (currentUser != null) {
-      saveDataToFirestore(currentUser!).then((value) {
-        Navigator.pop(context);
-        Route newRoute = MaterialPageRoute(builder: (c) => const HomeScreen());
-        Navigator.pushReplacement(context, newRoute);
+      setState(() {
+        _isLoading = true;
       });
+
+      await AuthenticateSellerAndSignUp();
+    } catch (error) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (c) => ErrorDialog(
+            message: error is FirebaseAuthException 
+                ? _getAuthErrorMessage(error) 
+                : "Registration failed: ${error.toString()}",
+          ),
+        );
+      }
     }
   }
 
-  Future saveDataToFirestore(User currentUser) async {
-    FirebaseFirestore.instance.collection("sellers").doc(currentUser.uid).set({
-      "sellerUID": currentUser.uid,
-      "sellerEmail": currentUser.email,
-      "sellerName": nameController.text.trim(),
-      "sellerAvatarBase64": sellerImageBase64,
-      "phone": phoneController.text.trim(),
-      "address": completeAddress,
-      "status": "approved",
-      "earnings": 0.0,
-      "lat": position!.latitude,
-      "lng": position!.longitude,
-    });
+  Future<void> AuthenticateSellerAndSignUp() async {
+    User? currentUser;
+    try {
+      // Validate email format
+      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(emailController.text.trim())) {
+        throw Exception("Please enter a valid email address");
+      }
 
-    sharedPreferences = await SharedPreferences.getInstance();
-    await sharedPreferences!.setString("uid", currentUser.uid);
-    await sharedPreferences!.setString("email", currentUser.email.toString());
-    await sharedPreferences!.setString("name", nameController.text.trim());
-    await sharedPreferences!.setString("photoBase64", sellerImageBase64);
+      // Validate password length
+      if (passwordController.text.length < 6) {
+        throw Exception("Password must be at least 6 characters long");
+      }
+
+      // Validate phone number
+      if (!RegExp(r'^\+?[\d\s-]{10,}$').hasMatch(phoneController.text.trim())) {
+        throw Exception("Please enter a valid phone number");
+      }
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (c) => const LoadingDialog(message: "Creating Account..."),
+        );
+      }
+
+      // Create user account
+      final authResult = await firebaseAuth.createUserWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+      
+      currentUser = authResult.user;
+
+      if (currentUser != null) {
+        try {
+          // Save user data to Firestore
+          await saveDataToFirestore(currentUser);
+          
+          // Clear form data
+          nameController.clear();
+          emailController.clear();
+          passwordController.clear();
+          confirmpasswordController.clear();
+          phoneController.clear();
+          locationController.clear();
+          
+          if (mounted) {
+            setState(() {
+              imageXFile = null;
+              _isLoading = false;
+            });
+
+            Navigator.pop(context); // Remove loading dialog
+            Route newRoute = MaterialPageRoute(builder: (c) => const HomeScreen());
+            Navigator.pushReplacement(context, newRoute);
+          }
+        } catch (error) {
+          if (mounted) {
+            Navigator.pop(context); // Remove loading dialog
+            showDialog(
+              context: context,
+              builder: (c) => ErrorDialog(
+                message: "Failed to save user data: ${error.toString()}",
+              ),
+            );
+          }
+          // Clean up the created user if data save fails
+          try {
+            await currentUser.delete();
+          } catch (deleteError) {
+            print("Error deleting user after failed data save: $deleteError");
+          }
+        }
+      }
+    } catch (error) {
+      if (mounted) {
+        Navigator.pop(context); // Remove loading dialog
+        showDialog(
+          context: context,
+          builder: (c) => ErrorDialog(
+            message: error is FirebaseAuthException 
+                ? _getAuthErrorMessage(error) 
+                : "Registration failed: ${error.toString()}",
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _getAuthErrorMessage(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'email-already-in-use':
+        return 'This email is already registered.';
+      case 'invalid-email':
+        return 'Invalid email format.';
+      case 'weak-password':
+        return 'Password is too weak. Please use a stronger password.';
+      case 'operation-not-allowed':
+        return 'Email/password accounts are not enabled.';
+      default:
+        return 'An error occurred. Please try again.';
+    }
+  }
+
+  Future<void> saveDataToFirestore(User currentUser) async {
+    try {
+      // Validate required data
+      if (position == null) {
+        throw Exception("Location data is missing");
+      }
+      if (sellerImageBase64.isEmpty) {
+        throw Exception("Profile image is missing");
+      }
+
+      final sellerDocRef = FirebaseFirestore.instance
+          .collection("sellers")
+          .doc(currentUser.uid);
+      
+      final Map<String, dynamic> sellerData = {
+        "sellerUID": currentUser.uid,
+        "sellerEmail": currentUser.email,
+        "sellerName": nameController.text.trim(),
+        "sellerAvatarBase64": sellerImageBase64,
+        "phone": phoneController.text.trim(),
+        "address": completeAddress,
+        "status": "approved",
+        "earnings": 0.0,
+        "lat": position!.latitude,
+        "lng": position!.longitude,
+        "createdAt": FieldValue.serverTimestamp(),
+        "lastUpdated": FieldValue.serverTimestamp(),
+        "isActive": true,
+        "registrationDate": FieldValue.serverTimestamp(),
+      };
+      
+      // Save seller data
+      await sellerDocRef.set(sellerData);
+
+      // Create menus collection
+      await sellerDocRef.collection("menus").doc("metadata").set({
+        "lastMenuId": null,
+        "createdAt": FieldValue.serverTimestamp(),
+      });
+
+      // Create orders collection
+      await sellerDocRef.collection("orders").doc("metadata").set({
+        "lastOrderId": null,
+        "createdAt": FieldValue.serverTimestamp(),
+      });
+
+      // Save data locally
+      sharedPreferences = await SharedPreferences.getInstance();
+      await sharedPreferences!.setString("uid", currentUser.uid);
+      await sharedPreferences!.setString("email", currentUser.email.toString());
+      await sharedPreferences!.setString("name", nameController.text.trim());
+      await sharedPreferences!.setString("photoBase64", sellerImageBase64);
+    } catch (e) {
+      throw Exception("Failed to save seller data: ${e.toString()}");
+    }
   }
 
   @override
@@ -709,9 +393,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
                     alignment: Alignment.center,
                     child: InkWell(
-                      onTap: () {
-                        _getImage();
-                      },
+                      onTap: _getImage,
                       child: CircleAvatar(
                         radius: MediaQuery.of(context).size.width * 0.20,
                         backgroundColor: Colors.white,
@@ -721,8 +403,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: imageXFile == null
                             ? Icon(
                                 Icons.person_add_alt_1,
-                                size:
-                                    MediaQuery.of(context).size.width * 0.20,
+                                size: MediaQuery.of(context).size.width * 0.20,
                                 color: Colors.grey,
                               )
                             : null,
@@ -741,83 +422,103 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: nameController,
                       hintText: "Name",
                       isObsecre: false,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your name';
+                        }
+                        return null;
+                      },
                     ),
                     CustomTextField(
                       data: Icons.email,
                       controller: emailController,
                       hintText: "Email",
                       isObsecre: false,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your email';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          return 'Please enter a valid email';
+                        }
+                        return null;
+                      },
                     ),
-                    Stack(
-                      children: [
-                        CustomTextField(
-                          data: Icons.lock,
-                          controller: passwordController,
-                          hintText: "Password",
-                          isObsecre: !_isPasswordVisible,
-                        ),
-                        Positioned(
-                          right: 16,
-                          top: 12,
-                          child: IconButton(
-                            icon: Icon(
-                              _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                              color: Colors.grey,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _isPasswordVisible = !_isPasswordVisible;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
+                    CustomTextField(
+                      data: Icons.lock,
+                      controller: passwordController,
+                      hintText: "Password",
+                      isObsecre: !_isPasswordVisible,
+                      onVisibilityChanged: () {
+                        setState(() {
+                          _isPasswordVisible = !_isPasswordVisible;
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a password';
+                        }
+                        if (value.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
+                        return null;
+                      },
                     ),
-                    Stack(
-                      children: [
-                        CustomTextField(
-                          data: Icons.lock,
-                          controller: confirmpasswordController,
-                          hintText: "Confirm password",
-                          isObsecre: !_isConfirmPasswordVisible,
-                        ),
-                        Positioned(
-                          right: 16,
-                          top: 12,
-                          child: IconButton(
-                            icon: Icon(
-                              _isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                              color: Colors.grey,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
+                    CustomTextField(
+                      data: Icons.lock,
+                      controller: confirmpasswordController,
+                      hintText: "Confirm password",
+                      isObsecre: !_isConfirmPasswordVisible,
+                      onVisibilityChanged: () {
+                        setState(() {
+                          _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please confirm your password';
+                        }
+                        if (value != passwordController.text) {
+                          return 'Passwords do not match';
+                        }
+                        return null;
+                      },
                     ),
                     CustomTextField(
                       data: Icons.phone_android_outlined,
                       controller: phoneController,
                       hintText: "Phone number",
                       isObsecre: false,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your phone number';
+                        }
+                        if (!RegExp(r'^\+?[\d\s-]{10,}$').hasMatch(value)) {
+                          return 'Please enter a valid phone number';
+                        }
+                        return null;
+                      },
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CustomTextField(
-                          data: Icons.my_location,
-                          controller: locationController,
-                          hintText: "Cafe/Restaurant Address",
-                          isObsecre: false,
-                          enabled: false,
+                        Expanded(
+                          child: CustomTextField(
+                            data: Icons.my_location,
+                            controller: locationController,
+                            hintText: "Restaurant Address",
+                            isObsecre: false,
+                            enabled: false,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please get your location';
+                              }
+                              return null;
+                            },
+                          ),
                         ),
                         IconButton(
-                          onPressed: () {
-                            getCurrenLocation();
-                          },
+                          onPressed: getCurrenLocation,
                           icon: const Icon(Icons.location_on, size: 40),
                           color: Colors.red,
                         ),
@@ -856,17 +557,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         borderRadius: BorderRadius.circular(30.0),
                       ),
                     ),
-                    onPressed: signUpFormValidation,
+                    onPressed: _isLoading ? null : signUpFormValidation,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(40, 10, 40, 10),
-                      child: Text(
-                        'Sign Up'.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                              'Sign Up'.toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
                 ),

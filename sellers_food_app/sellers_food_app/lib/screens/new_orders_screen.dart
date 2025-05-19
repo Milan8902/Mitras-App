@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import '../assistantMethods/assistant_methods.dart';
 import '../global/global.dart';
@@ -108,13 +109,12 @@ class _NewOrdersScreenState extends State<NewOrdersScreen> {
           ),
         ),
         child: StreamBuilder<QuerySnapshot>(
-          stream:
-              FirebaseFirestore.instance
-                  .collection("orders")
-                  .where("status", isEqualTo: "order placed")
-                  .where("sellerUID", isEqualTo: sellerUID)
-                  .orderBy("orderTime", descending: true)
-                  .snapshots(),
+          stream: FirebaseFirestore.instance
+              .collection("orders")
+              .where("sellerUID", isEqualTo: sellerUID)
+              .where("status", whereIn: ["order placed", "picking", "delivering", "ended"])
+              .orderBy("orderTime", descending: true)
+              .snapshots(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
               print("📡 Waiting for new orders...");
@@ -122,7 +122,35 @@ class _NewOrdersScreenState extends State<NewOrdersScreen> {
             }
 
             if (snapshot.data!.docs.isEmpty) {
-              return const Center(child: Text("No new orders."));
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 100,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "No Active Orders",
+                      style: GoogleFonts.poppins(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "New orders will appear here",
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              );
             }
 
             return ListView.builder(
@@ -156,6 +184,7 @@ class _NewOrdersScreenState extends State<NewOrdersScreen> {
                     // Get the userId (orderBy) from orderData
                     final userId = orderData["orderBy"] ?? "";
                     final orderId = snapshot.data!.docs[index].id;
+                    final orderStatus = orderData["status"] ?? "order placed";
 
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -165,6 +194,49 @@ class _NewOrdersScreenState extends State<NewOrdersScreen> {
                       ),
                       child: Column(
                         children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _getStatusColor(orderStatus).withOpacity(0.1),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(16),
+                                topRight: Radius.circular(16),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      _getStatusIcon(orderStatus),
+                                      color: _getStatusColor(orderStatus),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _getStatusText(orderStatus),
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: _getStatusColor(orderStatus),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  orderData["orderTime"] != null 
+                                      ? DateFormat("dd MMM yyyy, hh:mm a").format(
+                                          DateTime.fromMillisecondsSinceEpoch(
+                                              int.parse(orderData["orderTime"].toString())))
+                                      : "N/A",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                           OrderCardDesign(
                             itemCount: itemSnapshot.data!.docs.length,    
                             data: itemSnapshot.data!.docs,
@@ -172,28 +244,29 @@ class _NewOrdersScreenState extends State<NewOrdersScreen> {
                             seperateQuantitiesList: quantities,
                             userId: userId,
                           ),
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: ElevatedButton.icon(
-                              onPressed: () => processOrder(orderId, userId),
-                              icon: const Icon(Icons.check_circle_outline),
-                              label: Text(
-                                "Start Preparing Order",
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                          if (orderStatus == "order placed")
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: ElevatedButton.icon(
+                                onPressed: () => processOrder(orderId, userId),
+                                icon: const Icon(Icons.check_circle_outline),
+                                label: Text(
+                                  "Start Preparing Order",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     );
@@ -205,6 +278,51 @@ class _NewOrdersScreenState extends State<NewOrdersScreen> {
         ),
       ),
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case "order placed":
+        return Colors.orange;
+      case "picking":
+        return Colors.blue;
+      case "delivering":
+        return Colors.purple;
+      case "ended":
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status) {
+      case "order placed":
+        return Icons.shopping_cart;
+      case "picking":
+        return Icons.inventory_2;
+      case "delivering":
+        return Icons.delivery_dining;
+      case "ended":
+        return Icons.check_circle;
+      default:
+        return Icons.info;
+    }
+  }
+
+  String _getStatusText(String status) {
+    switch (status) {
+      case "order placed":
+        return "New Order";
+      case "picking":
+        return "Preparing";
+      case "delivering":
+        return "On the Way";
+      case "ended":
+        return "Delivered";
+      default:
+        return "Processing";
+    }
   }
 
   List<String> separateOrderItemIDs(dynamic productIDs) {
