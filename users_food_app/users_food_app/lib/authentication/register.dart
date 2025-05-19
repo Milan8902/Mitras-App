@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -30,18 +31,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
   TextEditingController confirmpasswordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  bool _isLoading = false;
 
   // Image picker
   XFile? imageXFile;
   final ImagePicker _picker = ImagePicker();
 
-  // Seller image url (Base64 String)
-  String userImageUrl = "";
-
   // Function for getting image
   Future<void> _getImage() async {
-    imageXFile = await _picker.pickImage(source: ImageSource.gallery);
-    setState(() {});
+    try {
+      imageXFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+      
+      if (imageXFile != null) {
+        setState(() {});
+      }
+    } catch (e) {
+      print("Error picking image: $e");
+      showDialog(
+        context: context,
+        builder: (c) {
+          return ErrorDialog(
+            message: "Failed to pick image. Please try again.",
+          );
+        },
+      );
+    }
   }
 
   // Convert image to Base64
@@ -52,107 +71,231 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return base64Encode(imageBytes);
     } catch (e) {
       print("Error converting image to base64: $e");
-      return ''; // Return empty string if conversion fails
+      throw Exception("Failed to process image. Please try again.");
     }
   }
 
   // Form Validation
   Future<void> signUpFormValidation() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
     if (imageXFile == null) {
+      showDialog(
+        context: context,
+        builder: (c) {
+          return const ErrorDialog(message: "Please select a profile image");
+        },
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Convert image to base64 string
+      String base64Image = await convertImageToBase64(imageXFile!);
+      
+      // Authenticate and sign up the user
+      await AuthenticateSellerAndSignUp(base64Image);
+    } catch (error) {
       setState(() {
-        showDialog(
-          context: context,
-          builder: (c) {
-            return const ErrorDialog(message: "Please select an image");
-          },
-        );
+        _isLoading = false;
       });
-    } else {
-      if (passwordController.text == confirmpasswordController.text) {
-        if (confirmpasswordController.text.isNotEmpty &&
-            emailController.text.isNotEmpty &&
-            nameController.text.isNotEmpty) {
-          // Start registering the user
-          showDialog(
-            context: context,
-            builder: (c) {
-              return const LoadingDialog(message: "Registering Account");
-            },
-          );
-
-          // Convert image to base64 string
-          String base64Image = await convertImageToBase64(imageXFile!);
-
-          // Authenticate and sign up the user
-          AuthenticateSellerAndSignUp(base64Image);
-        } else {
-          showDialog(
-            context: context,
-            builder: (c) {
-              return const ErrorDialog(message: "Please fill all the fields");
-            },
-          );
-        }
-      } else {
-        showDialog(
-          context: context,
-          builder: (c) {
-            return const ErrorDialog(message: "Passwords do not match");
-          },
-        );
-      }
+      showDialog(
+        context: context,
+        builder: (c) {
+          return ErrorDialog(message: error.toString());
+        },
+      );
     }
   }
 
-  void AuthenticateSellerAndSignUp(String base64Image) async {
+  Future<void> AuthenticateSellerAndSignUp(String base64Image) async {
     User? currentUser;
-    await firebaseAuth
-        .createUserWithEmailAndPassword(
-      email: emailController.text.trim(),
-      password: passwordController.text.trim(),
-    )
-        .then((auth) {
-      currentUser = auth.user;
-    }).catchError((error) {
+    try {
+      // Validate email format
+      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(emailController.text.trim())) {
+        throw Exception("Please enter a valid email address");
+      }
+
+      // Validate password
+      if (passwordController.text.length < 6) {
+        throw Exception("Password must be at least 6 characters long");
+      }
+
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) {
+          return const LoadingDialog(message: "Creating Account...");
+        },
+      );
+
+      print("Starting user creation process...");
+
+      // Create user with email and password
+      final authResult = await firebaseAuth.createUserWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+      
+      currentUser = authResult.user;
+      print("Firebase Auth successful: ${currentUser?.uid}");
+
+      if (currentUser != null) {
+        try {
+          print("Starting user data save...");
+          // Save user data with base64 image
+          await saveDataToFirestore(currentUser, base64Image);
+          print("User data saved successfully");
+          
+          // Clear form fields
+          nameController.clear();
+          emailController.clear();
+          passwordController.clear();
+          confirmpasswordController.clear();
+          setState(() {
+            imageXFile = null;
+            _isLoading = false;
+          });
+
+          Navigator.pop(context); // Remove loading dialog
+          Route newRoute = MaterialPageRoute(builder: (c) => const HomeScreen());
+          Navigator.pushReplacement(context, newRoute);
+        } catch (error) {
+          print("Error in registration process: $error");
+          Navigator.pop(context);
+          showDialog(
+            context: context,
+            builder: (c) {
+              return ErrorDialog(message: error.toString());
+            },
+          );
+          // Clean up the created user if data saving fails
+          try {
+            await currentUser.delete();
+          } catch (deleteError) {
+            print("Error deleting user after failed data save: $deleteError");
+          }
+        }
+      }
+    } catch (error) {
+      print("Firebase Auth Error: $error");
       Navigator.pop(context);
       showDialog(
         context: context,
         builder: (c) {
-          return ErrorDialog(message: error.message.toString());
+          return ErrorDialog(
+            message: error is FirebaseAuthException 
+                ? _getAuthErrorMessage(error) 
+                : error.toString()
+          );
         },
       );
-    });
-
-    if (currentUser != null) {
-      saveDataToFirestore(currentUser!, base64Image).then((value) {
-        Navigator.pop(context);
-        Route newRoute = MaterialPageRoute(builder: (c) => const HomeScreen());
-        Navigator.pushReplacement(context, newRoute);
+    } finally {
+      setState(() {
+        _isLoading = false;
       });
     }
   }
 
-  // Saving seller information to Firestore
-  Future saveDataToFirestore(User currentUser, String base64Image) async {
-    FirebaseFirestore.instance.collection("users").doc(currentUser.uid).set(
-      {
+  Future<void> saveDataToFirestore(User currentUser, String base64Image) async {
+    try {
+      // First check if the user document already exists
+      final userDocRef = FirebaseFirestore.instance
+          .collection("users")
+          .doc(currentUser.uid);
+      
+      // Prepare user data
+      final Map<String, dynamic> userData = {
         "uid": currentUser.uid,
         "email": currentUser.email,
         "name": nameController.text.trim(),
-        "photoUrl": base64Image,  // Store the base64 string here
+        "photoBase64": base64Image,
         "status": "approved",
         "userCart": ['garbageValue'],
-      },
-    );
+        "createdAt": FieldValue.serverTimestamp(),
+        "lastUpdated": FieldValue.serverTimestamp(),
+        "phone": "",
+        "address": "",
+        "userType": "user",
+        "isActive": true,
+        "registrationDate": FieldValue.serverTimestamp(),
+      };
+      
+      print("Attempting to save user data for: ${userData['email']}");
+      
+      // Create user document
+      await userDocRef.set(userData);
+      print("User document created successfully");
 
-    // Save data locally (for easy access)
-    sharedPreferences = await SharedPreferences.getInstance();
-    await sharedPreferences!.setString("uid", currentUser.uid);
-    await sharedPreferences!.setString("email", currentUser.email.toString());
-    await sharedPreferences!.setString("name", nameController.text.trim());
-    await sharedPreferences!.setString("photoUrl", base64Image);
-    await sharedPreferences!.setStringList(
-        "userCart", ['garbageValue']); // Empty cart list on registration
+      // Create cart collection
+      await userDocRef.collection("cart").doc("items").set({
+        "items": [],
+        "lastUpdated": FieldValue.serverTimestamp(),
+      });
+      print("Cart collection created successfully");
+
+      // Create orders collection
+      await userDocRef.collection("orders").doc("metadata").set({
+        "lastOrderId": null,
+        "createdAt": FieldValue.serverTimestamp(),
+      });
+      print("Orders collection created successfully");
+
+      // Save data locally
+      try {
+        sharedPreferences = await SharedPreferences.getInstance();
+        await sharedPreferences!.setString("uid", currentUser.uid);
+        await sharedPreferences!.setString("email", currentUser.email.toString());
+        await sharedPreferences!.setString("name", nameController.text.trim());
+        await sharedPreferences!.setString("photoBase64", base64Image);
+        await sharedPreferences!.setStringList("userCart", ['garbageValue']);
+        print("Local data saved successfully");
+      } catch (localError) {
+        print("Error saving local data: $localError");
+        // Continue even if local save fails
+      }
+    } catch (error) {
+      print("Error in saveDataToFirestore: $error");
+      if (error is FirebaseException) {
+        switch (error.code) {
+          case 'permission-denied':
+            throw Exception("Permission denied. Please check your Firebase configuration.");
+          case 'not-found':
+            throw Exception("Failed to create user document. Please try again.");
+          case 'already-exists':
+            throw Exception("User document already exists.");
+          case 'invalid-argument':
+            throw Exception("Invalid user data provided. Please check your input.");
+          case 'unavailable':
+            throw Exception("Firebase service is currently unavailable. Please try again later.");
+          default:
+            throw Exception("Failed to save user data: ${error.message}");
+        }
+      }
+      throw Exception("Failed to save user data: ${error.toString()}");
+    }
+  }
+
+  String _getAuthErrorMessage(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'email-already-in-use':
+        return 'This email is already registered. Please use a different email.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'operation-not-allowed':
+        return 'Email/password accounts are not enabled. Please contact support.';
+      case 'weak-password':
+        return 'Please use a stronger password.';
+      default:
+        return 'Failed to create account: ${error.message}';
+    }
   }
 
   @override
@@ -196,7 +339,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
                     alignment: Alignment.center,
                     child: InkWell(
-                      onTap: _getImage,
+                      onTap: _isLoading ? null : _getImage,
                       child: CircleAvatar(
                         radius: MediaQuery.of(context).size.width * 0.20,
                         backgroundColor: Colors.white,
@@ -225,12 +368,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: nameController,
                       hintText: "Name",
                       isObsecre: false,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your name';
+                        }
+                        return null;
+                      },
                     ),
                     CustomTextField(
                       data: Icons.email,
                       controller: emailController,
                       hintText: "Email",
                       isObsecre: false,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your email';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          return 'Please enter a valid email';
+                        }
+                        return null;
+                      },
                     ),
                     CustomTextField(
                       data: Icons.lock,
@@ -242,6 +400,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           _isPasswordVisible = !_isPasswordVisible;
                         });
                       },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a password';
+                        }
+                        if (value.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
+                        return null;
+                      },
                     ),
                     CustomTextField(
                       data: Icons.lock,
@@ -252,6 +419,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         setState(() {
                           _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
                         });
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please confirm your password';
+                        }
+                        if (value != passwordController.text) {
+                          return 'Passwords do not match';
+                        }
+                        return null;
                       },
                     ),
                   ],
@@ -292,17 +468,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           MaterialStateProperty.all(Colors.transparent),
                       shadowColor: MaterialStateProperty.all(Colors.transparent),
                     ),
+                    onPressed: _isLoading ? null : signUpFormValidation,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(40, 10, 40, 10),
                       child: Text(
-                        'Sign Up'.toUpperCase(),
+                        _isLoading ? 'Creating Account...' : 'Sign Up'.toUpperCase(),
                         style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.white),
                       ),
                     ),
-                    onPressed: signUpFormValidation,
                   ),
                 ),
               ),
