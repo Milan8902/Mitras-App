@@ -1,17 +1,14 @@
 import 'dart:async';
 
 import 'package:bringapp_admin_web_portal/authentication/login_screen.dart';
-import 'package:bringapp_admin_web_portal/riders/activate_riders_screen.dart';
-import 'package:bringapp_admin_web_portal/riders/deactivate_riders_screen.dart';
+import 'package:bringapp_admin_web_portal/riders/enhanced_riders_screen.dart';
+import 'package:bringapp_admin_web_portal/screens/dashboard_screen.dart';
 import 'package:bringapp_admin_web_portal/screens/payment_screen.dart';
-import 'package:bringapp_admin_web_portal/sellers/deactivate_sellers_screen.dart';
-import 'package:bringapp_admin_web_portal/users/active_users_screen.dart';
+import 'package:bringapp_admin_web_portal/users/enhanced_users_screen.dart';
+import 'package:bringapp_admin_web_portal/sellers/enhanced_sellers_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-
-import '../sellers/activate_sellers_screen.dart';
-import '../users/deactivate_users_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -120,222 +117,165 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 50),
 
-            // user activate and deactivate accounts ui
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                //activate user
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: ((context) => const ActiveUsersScreen()),
-                      ),
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.person_add,
-                    color: Color.fromARGB(255, 117, 190, 119),
-                  ),
-                  label: Text(
-                    "All Active".toUpperCase() + "\n  " + "Users".toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.white,
-                      letterSpacing: 3,
+            // Dashboard Button
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DashboardScreen(),
                     ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(30),
-                    backgroundColor: Colors.amber,
+                  );
+                },
+                icon: const Icon(
+                  Icons.dashboard,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  "Dashboard".toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    letterSpacing: 3,
                   ),
                 ),
-                const SizedBox(width: 10),
-                //deactivate user
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: ((context) => const DeactiveUsersScreen()),
-                      ),
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.block_flipped,
-                    color: Colors.redAccent,
-                  ),
-                  label: Text(
-                    "Deactivate".toUpperCase() +
-                        "\n    " +
-                        "Users".toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.black,
-                      letterSpacing: 3,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(30),
-                    backgroundColor: Colors.white,
-                  ),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.all(30),
+                  backgroundColor: Colors.amber,
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            //sellers activate and deactivate account
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                //activate seller
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: ((context) => const ActiveSellersScreen()),
-                      ),
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.person_add,
-                    color: Color.fromARGB(255, 117, 190, 119),
-                  ),
-                  label: Text(
-                    "All Active".toUpperCase() +
-                        "\n " +
-                        "Sellers".toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.black,
-                      letterSpacing: 3,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(30),
-                    backgroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                //deactivate user
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: ((context) => const DeactiveSellersScreen()),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.block, color: Colors.redAccent),
-                  label: Text(
-                    "Deactivate".toUpperCase() +
-                        "\n    " +
-                        "Sellers".toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.white,
-                      letterSpacing: 3,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(30),
-                    backgroundColor: Colors.amber,
-                  ),
-                ),
-              ],
+              ),
             ),
 
-            const SizedBox(height: 20),
-
-            //riders activate and deactivate account
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                //activate seller
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: ((context) => const ActiveRidersScreen()),
-                      ),
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.person_add,
-                    color: Color.fromARGB(255, 117, 190, 119),
-                  ),
-                  label: Text(
-                    "All Active".toUpperCase() +
-                        "\n   " +
-                        "Riders".toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.white,
-                      letterSpacing: 3,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(30),
-                    backgroundColor: Colors.amber,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                //deactivate user
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: ((context) => const DeactiveRidersScreen()),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.block, color: Colors.redAccent),
-                  label: Text(
-                    "Deactivate".toUpperCase() +
-                        "\n   " +
-                        "Riders".toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.black,
-                      letterSpacing: 3,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(30),
-                    backgroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: 30),
-            //deactivate user
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: ((context) => PaymentsScreen())),
-                );
-              },
-              icon: const Icon(Icons.block, color: Colors.redAccent),
-              label: Text(
-                "Payment",
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.black,
-                  letterSpacing: 3,
+
+            // Enhanced User Management Button
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const EnhancedUsersScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(
+                  Icons.people_alt,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  "Enhanced User Management".toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    letterSpacing: 3,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.all(30),
+                  backgroundColor: Colors.blue,
                 ),
               ),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.all(30),
-                backgroundColor: Colors.white,
+            ),
+
+            const SizedBox(height: 30),
+
+            // Enhanced Rider Management Button
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const EnhancedRidersScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(
+                  Icons.delivery_dining,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  "Enhanced Rider Management".toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    letterSpacing: 3,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.all(30),
+                  backgroundColor: Colors.green,
+                ),
               ),
             ),
-            const SizedBox(height: 10),
+
+            const SizedBox(height: 30),
+
+            // Enhanced Seller Management Button
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const EnhancedSellersScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(
+                  Icons.store,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  "Enhanced Seller Management".toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    letterSpacing: 3,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.all(30),
+                  backgroundColor: Colors.orange,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            // Payments Button
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PaymentsScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(
+                  Icons.payment,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  "Payments".toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    letterSpacing: 3,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.all(30),
+                  backgroundColor: Colors.deepPurple,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 30),
 
             //Logout
             ElevatedButton.icon(

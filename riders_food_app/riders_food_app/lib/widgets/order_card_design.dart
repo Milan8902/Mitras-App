@@ -21,6 +21,8 @@ class OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print("🔍 Building order card for order ID: $orderID");
+    
     return InkWell(
       onTap: () {
         Navigator.push(
@@ -37,10 +39,12 @@ class OrderCard extends StatelessWidget {
             .get(),
         builder: (context, orderSnapshot) {
           if (!orderSnapshot.hasData) {
+            print("⏳ Waiting for order data...");
             return const Center(child: CircularProgressIndicator());
           }
 
           if (!orderSnapshot.data!.exists) {
+            print("❌ Order not found: $orderID");
             return const Center(
               child: Text("Order not found"),
             );
@@ -48,13 +52,18 @@ class OrderCard extends StatelessWidget {
 
           Map<String, dynamic>? orderData = orderSnapshot.data!.data() as Map<String, dynamic>?;
           if (orderData == null) {
+            print("❌ Invalid order data for order: $orderID");
             return const Center(
               child: Text("Invalid order data"),
             );
           }
 
           String? orderByUser = orderData["orderBy"]?.toString();
+          String? orderStatus = orderData["status"]?.toString();
+          print("📦 Order status: $orderStatus, User: $orderByUser");
+
           if (orderByUser == null || orderByUser.isEmpty) {
+            print("❌ User information missing for order: $orderID");
             return const Center(
               child: Text("User information not available"),
             );
@@ -67,10 +76,12 @@ class OrderCard extends StatelessWidget {
                 .get(),
             builder: (context, userSnapshot) {
               if (!userSnapshot.hasData) {
+                print("⏳ Waiting for user data...");
                 return const Center(child: CircularProgressIndicator());
               }
 
               if (!userSnapshot.data!.exists) {
+                print("❌ User not found: $orderByUser");
                 return const Center(
                   child: Text("User not found"),
                 );
@@ -78,11 +89,13 @@ class OrderCard extends StatelessWidget {
 
               Map<String, dynamic>? userData = userSnapshot.data!.data() as Map<String, dynamic>?;
               if (userData == null) {
+                print("❌ Invalid user data for user: $orderByUser");
                 return const Center(
                   child: Text("Invalid user data"),
                 );
               }
 
+              print("✅ Order card built successfully for order: $orderID");
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

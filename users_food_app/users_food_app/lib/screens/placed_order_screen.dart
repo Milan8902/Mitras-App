@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:users_food_app/assistantMethods/assistant_methods.dart';
 import 'package:users_food_app/global/global.dart';
 import 'package:users_food_app/screens/home_screen.dart';
+import 'package:users_food_app/screens/my_orders_screen.dart';
 import '../esewa_repository.dart';
 import '../snackbar_helper.dart';
 
@@ -77,24 +78,24 @@ class _PlacedOrderScreenState extends State<PlacedOrderScreen> {
       "isSuccess": true,
       "sellerUID": widget.sellerUID,
       "riderUID": "",
-      "status": "normal",
+      "status": "order placed",
       "orderId": orderId,
     };
 
     writeOrderDetailsForUser(orderData);
     writeOrderDetailsForSeller(orderData).whenComplete(() {
       clearCartNow(context);
-      setState(() {
-        orderId = "";
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
-        // Show toast only for Cash on Delivery
-        if (paymentMethod == "Cash on Delivery") {
-          Fluttertoast.showToast(msg: "Order placed successfully!");
-        }
-      });
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+      Fluttertoast.showToast(
+        msg: "Order placed successfully!",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.green,
+        textColor: Colors.white,
+      );
     });
   }
 
@@ -455,6 +456,55 @@ class _PlacedOrderScreenState extends State<PlacedOrderScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class OrderPlacedScreen extends StatelessWidget {
+  final String orderId;
+  const OrderPlacedScreen({Key? key, required this.orderId}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 80),
+            SizedBox(height: 24),
+            Text(
+              'Order Placed Successfully!',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Your order has been placed and is being processed.',
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MyOrdersScreen(),
+                  ),
+                );
+              },
+              child: Text('View My Orders'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

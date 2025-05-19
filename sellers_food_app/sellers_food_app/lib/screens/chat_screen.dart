@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sellers_food_app/global/global.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'user_detail_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String userId;
   final String userName;
+  final String? userPhoto;
 
   const ChatScreen({
     Key? key,
     required this.userId,
     required this.userName,
+    this.userPhoto,
   }) : super(key: key);
 
   @override
@@ -20,6 +25,15 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController messageController = TextEditingController();
   final ScrollController scrollController = ScrollController();
+
+  Uint8List? _decodeBase64Image(String? base64String) {
+    if (base64String == null || base64String.isEmpty) return null;
+    try {
+      return base64Decode(base64String);
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   void initState() {
@@ -80,6 +94,14 @@ class _ChatScreenState extends State<ChatScreen> {
           .collection("messages")
           .add(messageData);
 
+      // Add message to shared chat collection for real-time sync with user app
+      String chatId = '${widget.userId}_$restaurantId';
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .add(messageData);
+
       // Scroll to bottom
       scrollController.animateTo(
         0,
@@ -118,14 +140,44 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
         ),
-        title: Text(
-          widget.userName,
-          style: GoogleFonts.lato(
-            textStyle: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+        title: Row(
+          children: [
+            if (widget.userPhoto != null && widget.userPhoto!.isNotEmpty)
+              CircleAvatar(
+                radius: 16,
+                backgroundImage: widget.userPhoto!.startsWith('http')
+                    ? NetworkImage(widget.userPhoto!)
+                    : (() {
+                        final decoded = _decodeBase64Image(widget.userPhoto);
+                        if (decoded != null) {
+                          return MemoryImage(decoded);
+                        } else {
+                          return const AssetImage('images/user.png');
+                        }
+                      })() as ImageProvider,
+              ),
+            if (widget.userPhoto != null && widget.userPhoto!.isNotEmpty)
+              const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (c) => UserDetailScreen(userId: widget.userId),
+                  ),
+                );
+              },
+              child: Text(
+                widget.userName,
+                style: GoogleFonts.lato(
+                  textStyle: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
         centerTitle: true,
       ),
@@ -134,10 +186,9 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection("seller_chats")
-                  .doc(sharedPreferences!.getString("uid"))
+                  .collection("chats")
+                  .doc('${widget.userId}_${sharedPreferences!.getString("uid")}')
                   .collection("messages")
-                  .where("senderId", isEqualTo: widget.userId)
                   .orderBy("timestamp", descending: true)
                   .snapshots(),
               builder: (context, snapshot) {

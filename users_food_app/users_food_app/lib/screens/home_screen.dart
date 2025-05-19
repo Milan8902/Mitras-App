@@ -24,9 +24,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
-  final TextEditingController _controller = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   late AnimationController _controllerAnim;
   late Animation<double> _fadeAnimation;
+  String _searchQuery = '';
+  bool _isSearching = false;
 
   @override
   void initState() {
@@ -46,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void dispose() {
     _controllerAnim.dispose();
-    _controller.clear();
+    _searchController.clear();
     super.dispose();
   }
 
@@ -113,6 +115,49 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               fontWeight: FontWeight.w500,
                             ),
                           ),
+                          const SizedBox(height: 10),
+                          // Search Bar
+                          Container(
+                            height: 45,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(25),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 5,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: 'Search restaurants...',
+                                prefixIcon: Icon(Icons.search, color: Colors.orange),
+                                suffixIcon: _searchController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: Icon(Icons.clear, color: Colors.grey),
+                                        onPressed: () {
+                                          setState(() {
+                                            _searchController.clear();
+                                            _searchQuery = '';
+                                            _isSearching = false;
+                                          });
+                                        },
+                                      )
+                                    : null,
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              ),
+                              onChanged: (value) {
+                                setState(() {
+                                  _searchQuery = value;
+                                  _isSearching = value.isNotEmpty;
+                                });
+                              },
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -147,176 +192,230 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ),
               ],
             ),
-            // Top Restaurants Section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Top Restaurants',
-                          style: GoogleFonts.poppins(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            // TODO: Navigate to all restaurants
-                          },
+            if (_isSearching && _searchQuery.isNotEmpty)
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection("sellers")
+                    .where("status", isEqualTo: "approved")
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return SliverToBoxAdapter(
+                      child: Center(
+                        child: Text('Error: ${snapshot.error}'),
+                      ),
+                    );
+                  }
+                  if (!snapshot.hasData) {
+                    return const SliverToBoxAdapter(
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+                  List<QueryDocumentSnapshot> filteredDocs = snapshot.data!.docs.where((doc) {
+                    final sellerName = (doc.data() as Map<String, dynamic>)['sellerName']?.toString().toLowerCase() ?? '';
+                    return sellerName.contains(_searchQuery.toLowerCase());
+                  }).toList();
+                  if (filteredDocs.isEmpty) {
+                    return SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
                           child: Text(
-                            'See All',
+                            'No restaurants found matching "$_searchQuery"',
                             style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: Colors.orange,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 16,
+                              color: Colors.black54,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    const SellerCarouselWidget(),
-                  ],
-                ),
-              ),
-            ),
-            // Popular Dishes Section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Popular Dishes',
-                          style: GoogleFonts.poppins(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            // TODO: Navigate to all dishes
-                          },
-                          child: Text(
-                            'See All',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: Colors.orange,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    const ItemsAvatarCarousel(),
-                  ],
-                ),
-              ),
-            ),
-            // All Restaurants Section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Text(
-                  'All Restaurants',
-                  style: GoogleFonts.poppins(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-            ),
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection("sellers")
-                  .where("status", isEqualTo: "approved")
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  print('Error fetching sellers: ${snapshot.error}');
-                  return SliverToBoxAdapter(
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Text(
-                          'Error loading restaurants',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
                       ),
-                    ),
-                  );
-                }
-
-                if (!snapshot.hasData) {
-                  return const SliverToBoxAdapter(
-                    child: Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: CircularProgressIndicator(
-                          color: Color(0xFFF57C00),
-                        ),
-                      ),
-                    ),
-                  );
-                }
-
-                if (snapshot.data!.docs.isEmpty) {
-                  return SliverToBoxAdapter(
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Text(
-                          'No restaurants available',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }
-
-                return SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverMasonryGrid.count(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    childCount: snapshot.data!.docs.length,
-                    itemBuilder: (context, index) {
-                      Sellers seller = Sellers.fromJson(
-                        snapshot.data!.docs[index].data() as Map<String, dynamic>,
-                      );
-                      return AnimatedScale(
-                        scale: 1.0,
-                        duration: const Duration(milliseconds: 300),
-                        child: SellersDesignWidget(
-                          model: seller,
+                    );
+                  }
+                  return SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sliver: SliverMasonryGrid.count(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childCount: filteredDocs.length,
+                      itemBuilder: (context, index) {
+                        Sellers sModel = Sellers.fromJson(
+                          filteredDocs[index].data()! as Map<String, dynamic>,
+                        );
+                        return SellersDesignWidget(
+                          model: sModel,
                           context: context,
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
+                  );
+                },
+              )
+            else ...[
+              // Top Restaurants Section
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Top Restaurants',
+                            style: GoogleFonts.poppins(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              // TODO: Navigate to all restaurants
+                            },
+                            child: Text(
+                              'See All',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.orange,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const SellerCarouselWidget(),
+                    ],
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+              // Popular Dishes Section
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Popular Dishes',
+                            style: GoogleFonts.poppins(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              // TODO: Navigate to all dishes
+                            },
+                            child: Text(
+                              'See All',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.orange,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const ItemsAvatarCarousel(),
+                    ],
+                  ),
+                ),
+              ),
+              // All Restaurants Section
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Text(
+                    'All Restaurants',
+                    style: GoogleFonts.poppins(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              ),
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection("sellers")
+                    .where("status", isEqualTo: "approved")
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return SliverToBoxAdapter(
+                      child: Center(
+                        child: Text('Error: ${snapshot.error}'),
+                      ),
+                    );
+                  }
+
+                  if (!snapshot.hasData) {
+                    return const SliverToBoxAdapter(
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+
+                  List<QueryDocumentSnapshot> filteredDocs = snapshot.data!.docs;
+                  if (_isSearching && _searchQuery.isNotEmpty) {
+                    filteredDocs = snapshot.data!.docs.where((doc) {
+                      final sellerName = (doc.data() as Map<String, dynamic>)['sellerName']?.toString().toLowerCase() ?? '';
+                      return sellerName.contains(_searchQuery.toLowerCase());
+                    }).toList();
+                  }
+
+                  if (filteredDocs.isEmpty) {
+                    return SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Text(
+                            _isSearching 
+                                ? 'No restaurants found matching "$_searchQuery"'
+                                : 'No restaurants available',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sliver: SliverMasonryGrid.count(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childCount: filteredDocs.length,
+                      itemBuilder: (context, index) {
+                        Sellers sModel = Sellers.fromJson(
+                          filteredDocs[index].data()! as Map<String, dynamic>,
+                        );
+                        return SellersDesignWidget(
+                          model: sModel,
+                          context: context,
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
           ],
         ),
       ),

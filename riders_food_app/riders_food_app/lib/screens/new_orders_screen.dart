@@ -17,6 +17,8 @@ class _NewOrdersScreenState extends State<NewOrdersScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
+  List<QueryDocumentSnapshot> _filteredOrders = [];
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -32,6 +34,23 @@ class _NewOrdersScreenState extends State<NewOrdersScreen>
     _controller.forward();
   }
 
+  void _filterOrders(String query, List<QueryDocumentSnapshot> allOrders) {
+    setState(() {
+      _searchQuery = query;
+      if (query.isEmpty) {
+        _filteredOrders = allOrders;
+      } else {
+        _filteredOrders = allOrders.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final address = data['address']?.toString().toLowerCase() ?? '';
+          final status = data['status']?.toString().toLowerCase() ?? '';
+          final searchLower = query.toLowerCase();
+          return address.contains(searchLower) || status.contains(searchLower);
+        }).toList();
+      }
+    });
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -40,6 +59,8 @@ class _NewOrdersScreenState extends State<NewOrdersScreen>
 
   @override
   Widget build(BuildContext context) {
+    print("🚀 Building New Orders Screen");
+    
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -147,7 +168,10 @@ class _NewOrdersScreenState extends State<NewOrdersScreen>
                         ),
                         style: GoogleFonts.poppins(color: Colors.black87),
                         onChanged: (value) {
-                          // Add search logic here if needed
+                          // Search will be handled in the StreamBuilder
+                          setState(() {
+                            _searchQuery = value;
+                          });
                         },
                       ),
                     ],
@@ -157,19 +181,35 @@ class _NewOrdersScreenState extends State<NewOrdersScreen>
             ),
             // Orders List
             StreamBuilder<QuerySnapshot>(
-              stream:
-                  FirebaseFirestore.instance
-                      .collection("orders")
-                      .where("status", isEqualTo: "normal")
-                      .orderBy("orderTime", descending: true)
-                      .snapshots(),
+              stream: FirebaseFirestore.instance
+                  .collection("orders")
+                  .where("status", whereIn: ["order placed", "picking"])
+                  .orderBy("orderTime", descending: true)
+                  .snapshots(),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  print("Error in orders stream: ${snapshot.error}");
+                  return SliverToBoxAdapter(
+                    child: Center(
+                      child: Text(
+                        "Error: ${snapshot.error}",
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
                 if (!snapshot.hasData) {
                   return SliverToBoxAdapter(
                     child: Center(child: circularProgress()),
                   );
                 }
+
                 final orderDocs = snapshot.data!.docs;
+
                 if (orderDocs.isEmpty) {
                   return SliverToBoxAdapter(
                     child: Center(
@@ -203,6 +243,7 @@ class _NewOrdersScreenState extends State<NewOrdersScreen>
                     ),
                   );
                 }
+
                 return SliverToBoxAdapter(
                   child: AnimationLimiter(
                     child: ListView.builder(
@@ -210,6 +251,13 @@ class _NewOrdersScreenState extends State<NewOrdersScreen>
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: orderDocs.length,
                       itemBuilder: (context, index) {
+                        final orderData = orderDocs[index].data() as Map<String, dynamic>;
+                        List<String> itemIDs = separateOrderItemIDs(
+                          orderData["productIDs"],
+                        );
+                        if (itemIDs.isEmpty) {
+                          return const SizedBox();
+                        }
                         return AnimationConfiguration.staggeredList(
                           position: index,
                           duration: const Duration(milliseconds: 500),
@@ -222,61 +270,41 @@ class _NewOrdersScreenState extends State<NewOrdersScreen>
                                   vertical: 8,
                                 ),
                                 child: FutureBuilder<QuerySnapshot>(
-                                  future:
-                                      FirebaseFirestore.instance
-                                          .collection("items")
-                                          .where(
-                                            "itemID",
-                                            whereIn: separateOrderItemIDs(
-                                              (orderDocs[index].data()!
-                                                  as Map<
-                                                    String,
-                                                    dynamic
-                                                  >)["productIDs"],
-                                            ),
-                                          )
-                                          .orderBy(
-                                            "publishedDate",
-                                            descending: true,
-                                          )
-                                          .get(),
-                                  builder: (c, snap) {
-                                    if (!snap.hasData) {
+                                  future: FirebaseFirestore.instance
+                                      .collection("items")
+                                      .where("itemID", whereIn: itemIDs)
+                                      .orderBy("publishedDate", descending: true)
+                                      .get(),
+                                  builder: (context, itemsSnapshot) {
+                                    if (!itemsSnapshot.hasData) {
                                       return const SizedBox.shrink();
                                     }
-
-                                    // Get the order data
-                                    Map<String, dynamic> orderData = orderDocs[index].data()! as Map<String, dynamic>;
-                                    String? orderByUser = orderData["orderBy"]?.toString();
-
-                                    // Check if user exists
-                                    return FutureBuilder<DocumentSnapshot>(
-                                      future: FirebaseFirestore.instance
-                                          .collection("users")
-                                          .doc(orderByUser)
-                                          .get(),
-                                      builder: (context, userSnapshot) {
-                                        // If user doesn't exist or data is not available, don't show the order
-                                        if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
-                                          return const SizedBox.shrink();
-                                        }
-
-                                        return Card(
-                                          elevation: 2,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(16),
+                                    return Card(
+                                      elevation: 4,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              Colors.amber.shade100,
+                                              Colors.orange.shade100,
+                                            ],
                                           ),
-                                          child: OrderCard(
-                                            itemCount: snap.data!.docs.length,
-                                            data: snap.data!.docs,
-                                            orderID: orderDocs[index].id,
-                                            seperateQuantitiesList:
-                                                separateOrderItemQuantities(
-                                                  orderData["productIDs"],
-                                                ),
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        child: OrderCard(
+                                          itemCount: itemsSnapshot.data!.docs.length,
+                                          data: itemsSnapshot.data!.docs,
+                                          orderID: orderDocs[index].id,
+                                          seperateQuantitiesList: separateOrderItemQuantities(
+                                            orderData["productIDs"],
                                           ),
-                                        );
-                                      },
+                                        ),
+                                      ),
                                     );
                                   },
                                 ),

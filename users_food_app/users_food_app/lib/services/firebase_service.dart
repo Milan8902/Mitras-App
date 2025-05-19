@@ -35,7 +35,7 @@ class FirebaseService {
     try {
       ensureInitialized();
 
-      if (restaurantId == null || restaurantId.isEmpty) {
+      if (restaurantId.isEmpty) {
         throw Exception('Invalid restaurant ID');
       }
 
@@ -44,11 +44,11 @@ class FirebaseService {
         throw Exception('User is not authenticated');
       }
 
+      // Get messages from the chat collection
       return _firestore
-          .collection('user_chats')
-          .doc(currentUser.uid)
+          .collection('chats')
+          .doc('${currentUser.uid}_$restaurantId')
           .collection('messages')
-          .where('restaurantId', isEqualTo: restaurantId)
           .orderBy('timestamp', descending: true)
           .snapshots();
     } catch (e) {
@@ -59,11 +59,9 @@ class FirebaseService {
 
   Future<void> sendSellerMessage(String restaurantId, String message, {String? sellerId}) async {
     try {
-      if (!_isInitialized) {
-        throw Exception('Firebase is not initialized');
-      }
+      await ensureInitialized();
 
-      if (restaurantId == null || restaurantId.isEmpty) {
+      if (restaurantId.isEmpty) {
         throw Exception('Invalid restaurant ID');
       }
 
@@ -74,6 +72,7 @@ class FirebaseService {
         throw Exception('User is not authenticated');
       }
 
+      final chatId = '${currentUser.uid}_$restaurantId';
       final messageData = {
         'senderId': currentUser.uid,
         'restaurantId': restaurantId,
@@ -84,19 +83,28 @@ class FirebaseService {
         'isRead': false,
       };
 
-      // Add message to seller's chat collection
+      // Add message to the chat collection
+      await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .add(messageData);
+
+      // Also add message to seller's chat collection for seller real-time sync
       await _firestore
           .collection('seller_chats')
           .doc(restaurantId)
           .collection('messages')
           .add(messageData);
 
-      // Add message to user's chat collection
-      await _firestore
-          .collection('user_chats')
-          .doc(currentUser.uid)
-          .collection('messages')
-          .add(messageData);
+      // Update the chat document with last message info
+      await _firestore.collection('chats').doc(chatId).set({
+        'lastMessage': message,
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'participants': [currentUser.uid, restaurantId],
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
     } catch (e) {
       print('Error sending message: $e');
       rethrow;

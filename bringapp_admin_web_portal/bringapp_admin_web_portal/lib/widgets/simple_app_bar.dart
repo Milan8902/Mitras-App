@@ -5,8 +5,14 @@ import 'package:bringapp_admin_web_portal/screens/home_screen.dart';
 class SimpleAppBar extends StatelessWidget implements PreferredSizeWidget {
   final PreferredSizeWidget? bottom;
   final String? title;
+  final List<Widget>? actions;
 
-  const SimpleAppBar({super.key, this.bottom, this.title});
+  const SimpleAppBar({
+    super.key, 
+    this.bottom, 
+    this.title,
+    this.actions,
+  });
 
   @override
   Size get preferredSize => bottom == null
@@ -58,6 +64,7 @@ class SimpleAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: true,
       bottom: bottom,
       automaticallyImplyLeading: true,
+      actions: actions,
     );
   }
 }

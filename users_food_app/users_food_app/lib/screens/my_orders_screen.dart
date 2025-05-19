@@ -6,6 +6,8 @@ import 'package:users_food_app/global/global.dart';
 import 'package:users_food_app/widgets/design/order_card_design.dart';
 import 'package:users_food_app/widgets/progress_bar.dart';
 import 'package:users_food_app/widgets/simple_app_bar.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:users_food_app/assistantMethods/order_status_helper.dart';
 
 class MyOrdersScreen extends StatefulWidget {
   const MyOrdersScreen({Key? key}) : super(key: key);
@@ -15,6 +17,41 @@ class MyOrdersScreen extends StatefulWidget {
 }
 
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
+  Future<void> _markOrderAsReceived(String orderId) async {
+    if (orderId.isEmpty) {
+      Fluttertoast.showToast(
+        msg: "Error: Invalid order ID",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+      return;
+    }
+    try {
+      await OrderStatusHelper.updateOrderStatus(
+        orderId: orderId,
+        status: 'received',
+      );
+      setState(() {}); // Refresh UI
+      Fluttertoast.showToast(
+        msg: "Order marked as received!",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.green,
+        textColor: Colors.white,
+      );
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: "Error: "+e.toString(),
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -38,7 +75,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                   .collection("orders")
                   .where(
                     "status",
-                    whereIn: ["normal", "picking", "delivering", "ended"],
+                    whereIn: ["order placed", "picking", "delivering", "ended"],
                   )
                   .orderBy("orderTime", descending: true)
                   .snapshots(),
@@ -200,7 +237,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                              if (orderStatus == "ended")
+                              if (orderStatus == "ended") ...[
                                 Text(
                                   "Order delivered successfully!",
                                   style: GoogleFonts.poppins(
@@ -208,6 +245,37 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: () => _markOrderAsReceived(snapshot.data!.docs[index].id),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFF57C00),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.check_circle_outline, size: 20),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          "Confirm Order Received",
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),

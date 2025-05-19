@@ -306,14 +306,12 @@ class _HistoryScreenState extends State<HistoryScreen>
                                           ),
                                         ),
                                         child: OrderCard(
-                                          itemCount:
-                                              itemsSnapshot.data!.docs.length,
+                                          itemCount: itemsSnapshot.data!.docs.length,
                                           data: itemsSnapshot.data!.docs,
                                           orderID: orderDocs[index].id,
-                                          seperateQuantitiesList:
-                                              separateOrderItemQuantities(
-                                                orderData["productIDs"],
-                                              ),
+                                          seperateQuantitiesList: separateOrderItemQuantities(
+                                            orderData["productIDs"],
+                                          ),
                                         ),
                                       ),
                                     );

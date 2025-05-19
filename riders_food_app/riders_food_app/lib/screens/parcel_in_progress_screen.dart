@@ -303,14 +303,12 @@ class _ParcelInProgressScreenState extends State<ParcelInProgressScreen>
                                           ),
                                         ),
                                         child: OrderCard(
-                                          itemCount:
-                                              itemsSnapshot.data!.docs.length,
+                                          itemCount: itemsSnapshot.data!.docs.length,
                                           data: itemsSnapshot.data!.docs,
                                           orderID: orderDocs[index].id,
-                                          seperateQuantitiesList:
-                                              separateOrderItemQuantities(
-                                                orderData["productIDs"],
-                                              ),
+                                          seperateQuantitiesList: separateOrderItemQuantities(
+                                            orderData["productIDs"],
+                                          ),
                                         ),
                                       ),
                                     );

@@ -51,42 +51,66 @@ class _ParcelPickingScreenState extends State<ParcelPickingScreen> {
   }
 
   // updating status and comfirming order has picked
-  confirmParcelHasBeenPicked(
+  Future<void> confirmParcelHasBeenPicked(
     getOrderId,
     sellerId,
     purchaserId,
     purchaserAddress,
     purchaserLat,
     purchaserLng,
-  ) {
-    FirebaseFirestore.instance.collection("orders").doc(getOrderId).update({
-      "status": "delivering",
-      "address": completeAddress,
-      "lat": position!.latitude,
-      "lng": position!.longitude,
-    });
+  ) async {
+    try {
+      // Get current location first
+      UserLocation uLocation = UserLocation();
+      await uLocation.getCurrenLocation();
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => HomeScreen()),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Order has been accepted'),
-        backgroundColor: Colors.green,
-      ),
-    );
-    // Navigator.push(
-    //     context,
-    //     MaterialPageRoute(
-    //         builder: (c) => ParcelDeliveringScreen(
-    //               purchaserId: purchaserId,
-    //               purchaserAddress: purchaserAddress,
-    //               purchaserLat: purchaserLat,
-    //               purchaserLng: purchaserLng,
-    //               sellerId: sellerId,
-    //               getOrderId: getOrderId,
-    //             )));
+      // Wait for position to be available
+      if (position == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please wait for location to be updated'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Update order status
+      await FirebaseFirestore.instance.collection("orders").doc(getOrderId).update({
+        "status": "delivering",
+        "address": completeAddress,
+        "lat": position!.latitude,
+        "lng": position!.longitude,
+        "riderUID": sharedPreferences!.getString("uid"),
+      });
+
+      // Navigate to delivering screen
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (c) => ParcelDeliveringScreen(
+              purchaserId: purchaserId,
+              purchaserAddress: purchaserAddress,
+              purchaserLat: purchaserLat,
+              purchaserLng: purchaserLng,
+              sellerId: sellerId,
+              getOrderId: getOrderId,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print("Error confirming parcel pickup: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error confirming pickup. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -101,12 +125,21 @@ class _ParcelPickingScreenState extends State<ParcelPickingScreen> {
           GestureDetector(
             onTap: () {
               // show location from rider current location towards seller location
-              MapUtils.launchMapFromSourceToDestination(
-                position!.latitude,
-                position!.longitude,
-                sellerLat,
-                sellerLng,
-              );
+              if (position != null && sellerLat != null && sellerLng != null) {
+                MapUtils.launchMapFromSourceToDestination(
+                  position!.latitude,
+                  position!.longitude,
+                  sellerLat,
+                  sellerLng,
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please wait for location to be updated'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
             },
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -134,12 +167,9 @@ class _ParcelPickingScreenState extends State<ParcelPickingScreen> {
             padding: const EdgeInsets.all(10.0),
             child: Center(
               child: InkWell(
-                onTap: () {
+                onTap: () async {
                   // confirm that rider has picked order
-                  UserLocation uLocation = UserLocation();
-                  uLocation.getCurrenLocation();
-
-                  confirmParcelHasBeenPicked(
+                  await confirmParcelHasBeenPicked(
                     widget.getOrderID,
                     widget.sellerId,
                     widget.purchaserId,

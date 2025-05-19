@@ -248,77 +248,38 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
                     final message = snapshot.data!.docs[index];
-                    final isCurrentUser = message['senderId'] == _auth.currentUser?.uid;
-                    final isRestaurant = message['senderType'] == 'seller';
+                    final data = message.data() as Map<String, dynamic>;
+                    final isMe = data['senderId'] == _auth.currentUser?.uid;
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                      child: Row(
-                        mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: MediaQuery.of(context).size.width * 0.7,
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                            decoration: BoxDecoration(
-                              color: isCurrentUser
-                                  ? Colors.orange[100]
-                                  : isRestaurant
-                                      ? Colors.orange[50]
-                                      : Colors.grey[100],
-                              borderRadius: BorderRadius.circular(16.0),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.withOpacity(0.1),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
+                    return Align(
+                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: isMe ? Colors.orange : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              data['message'] ?? '',
+                              style: GoogleFonts.poppins(
+                                color: isMe ? Colors.white : Colors.black87,
+                                fontSize: 14,
+                              ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          isCurrentUser ? (sharedPreferences?.getString('name') ?? 'User') : widget.restaurantName,
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                            color: isCurrentUser ? Colors.white : Colors.black,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          _formatTimestamp(message['timestamp']),
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 10,
-                                            color: isCurrentUser ? Colors.white : Colors.grey[600]!,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      message['message'],
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 14,
-                                        color: isCurrentUser
-                                            ? Colors.orange[600]
-                                            : isRestaurant
-                                                ? Colors.orange[500]
-                                                : Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                            const SizedBox(height: 4),
+                            Text(
+                              _formatTimestamp(data['timestamp']),
+                              style: GoogleFonts.poppins(
+                                color: isMe ? Colors.white70 : Colors.black54,
+                                fontSize: 12,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -332,9 +293,9 @@ class _ChatScreenState extends State<ChatScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: Colors.black12,
                   blurRadius: 5,
-                  offset: const Offset(0, -2),
+                  offset: Offset(0, -2),
                 ),
               ],
             ),
@@ -346,48 +307,38 @@ class _ChatScreenState extends State<ChatScreen> {
                     decoration: InputDecoration(
                       hintText: 'Type a message...',
                       hintStyle: GoogleFonts.poppins(
-                        color: Colors.grey[400],
+                        color: Colors.grey[600],
                         fontSize: 14,
                       ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(25),
                         borderSide: BorderSide.none,
                       ),
                       filled: true,
                       fillColor: Colors.grey[100],
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
+                        horizontal: 20,
                         vertical: 10,
                       ),
                     ),
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                     ),
-                    onSubmitted: (value) {
-                      if (value.trim().isNotEmpty) {
-                        _sendMessage(value);
-                      }
-                    },
                   ),
                 ),
                 const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    if (_messageController.text.trim().isNotEmpty) {
+                Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Colors.amber, Colors.orange],
+                    ),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: () {
                       _sendMessage(_messageController.text);
-                    }
-                  },
-                  icon: const Icon(Icons.send),
-                  label: const Text('Send'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    backgroundColor: Colors.orange[500],
+                    },
                   ),
                 ),
               ],

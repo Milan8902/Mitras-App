@@ -277,15 +277,7 @@ class _NotYetDeliveredScreenState extends State<NotYetDeliveredScreen>
                                     }
                                     if (!itemsSnapshot.hasData ||
                                         itemsSnapshot.data!.docs.isEmpty) {
-                                      return Center(
-                                        child: Text(
-                                          "No item details found for this order.",
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 16,
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                      );
+                                      return const SizedBox.shrink();
                                     }
                                     return Card(
                                       elevation: 4,

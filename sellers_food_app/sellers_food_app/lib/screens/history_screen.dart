@@ -5,6 +5,7 @@ import '../assistantMethods/assistant_methods.dart';
 import '../global/global.dart';
 import '../widgets/order_card_design.dart';
 import '../widgets/progress_bar.dart';
+import 'package:intl/intl.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({Key? key}) : super(key: key);
@@ -79,7 +80,7 @@ class _HistoryScreenState extends State<HistoryScreen>
               FirebaseFirestore.instance
                   .collection("orders")
                   .where("sellerUID", isEqualTo: sellerUID)
-                  .where("status", isEqualTo: "ended")
+                  .where("status", whereIn: ["ended", "received"])
                   .orderBy("orderTime", descending: true)
                   .snapshots(),
           builder: (context, snapshot) {
@@ -108,7 +109,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        "No Delivery History",
+                        "No Order History",
                         style: GoogleFonts.poppins(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -158,11 +159,141 @@ class _HistoryScreenState extends State<HistoryScreen>
                       }
 
                       final itemData = itemSnapshot.data!;
-                      return OrderCardDesign(
-                        itemCount: itemData.docs.length,
-                        data: itemData.docs,
-                        orderID: orders[index].id,
-                        seperateQuantitiesList: quantities,
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Order Status and Date Header
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: orderData["status"] == "ended" 
+                                    ? Colors.green.shade50 
+                                    : Colors.blue.shade50,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(12),
+                                  topRight: Radius.circular(12),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        orderData["status"] == "ended" 
+                                            ? Icons.check_circle 
+                                            : Icons.done_all,
+                                        color: orderData["status"] == "ended" 
+                                            ? Colors.green 
+                                            : Colors.blue,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        orderData["status"] == "ended" 
+                                            ? "Delivered" 
+                                            : "Completed",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: orderData["status"] == "ended" 
+                                              ? Colors.green.shade800 
+                                              : Colors.blue.shade800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    orderData["orderTime"] != null 
+                                        ? DateFormat("dd MMM yyyy, hh:mm a").format(
+                                            DateTime.fromMillisecondsSinceEpoch(
+                                                int.parse(orderData["orderTime"].toString())))
+                                        : "N/A",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Order Items
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Order Items:",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ...itemData.docs.asMap().entries.map((entry) {
+                                    final item = entry.value.data() as Map<String, dynamic>;
+                                    final quantity = quantities[entry.key];
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              "${item["title"]} x$quantity",
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 14,
+                                                color: Colors.grey.shade700,
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            "Rs. ${(double.parse(item["price"].toString()) * int.parse(quantity)).toStringAsFixed(2)}",
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.grey.shade800,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                  const Divider(height: 24),
+                                  // Order Total
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Total Amount:",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey.shade800,
+                                        ),
+                                      ),
+                                      Text(
+                                        "Rs. ${orderData["totalAmount"]?.toString() ?? "0.00"}",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.orange.shade800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       );
                     },
                   ),

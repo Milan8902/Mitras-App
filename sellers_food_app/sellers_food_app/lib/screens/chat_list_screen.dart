@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sellers_food_app/global/global.dart';
 import 'package:sellers_food_app/screens/chat_screen.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({Key? key}) : super(key: key);
@@ -12,10 +14,18 @@ class ChatListScreen extends StatefulWidget {
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
+  Uint8List? _decodeBase64Image(String? base64String) {
+    if (base64String == null || base64String.isEmpty) return null;
+    try {
+      return base64Decode(base64String);
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     String sellerId = sharedPreferences!.getString("uid")!;
-    print('Seller ID: $sellerId');
 
     return Scaffold(
       appBar: AppBar(
@@ -63,7 +73,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
               .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
-              print('Error in chat list: ${snapshot.error}');
               return Center(
                 child: Text(
                   'Error: ${snapshot.error}',
@@ -83,7 +92,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
             }
 
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              print('No messages found');
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -109,25 +117,20 @@ class _ChatListScreenState extends State<ChatListScreen> {
               );
             }
 
-            print('Number of messages: ${snapshot.data!.docs.length}');
-
             // Group messages by sender
             Map<String, Map<String, dynamic>> chatGroups = {};
             for (var doc in snapshot.data!.docs) {
               try {
                 var data = doc.data() as Map<String, dynamic>;
-                print('Message data: $data');
 
                 var senderId = data['senderId'] as String?;
                 var senderType = data['senderType'] as String?;
                 
                 if (senderId == null || senderType == null) {
-                  print('Skipping invalid message: senderId or senderType is null');
                   continue;
                 }
                 
                 if (senderType == 'restaurant') {
-                  print('Skipping restaurant message');
                   continue;
                 }
                 
@@ -138,20 +141,15 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     'senderName': data['senderName'] ?? 'User',
                     'unreadCount': data['isRead'] == false ? 1 : 0,
                   };
-                  print('Added new chat group for sender: $senderId');
                 } else {
                   if (data['isRead'] == false) {
                     chatGroups[senderId]!['unreadCount'] = (chatGroups[senderId]!['unreadCount'] as int) + 1;
-                    print('Updated unread count for sender: $senderId');
                   }
                 }
               } catch (e) {
-                print('Error processing message: $e');
                 continue;
               }
             }
-
-            print('Number of chat groups: ${chatGroups.length}');
 
             if (chatGroups.isEmpty) {
               return Center(
@@ -184,140 +182,168 @@ class _ChatListScreenState extends State<ChatListScreen> {
               itemBuilder: (context, index) {
                 var senderId = chatGroups.keys.elementAt(index);
                 var chatData = chatGroups[senderId]!;
-                var userName = chatData['senderName'] as String? ?? 'User';
                 var lastMessage = chatData['lastMessage'] as String? ?? '';
                 var lastMessageTime = chatData['lastMessageTime'] as Timestamp?;
-                var unreadCount = chatData['unreadCount'] as int? ?? 0;
 
-                print('Building chat item for user: $userName');
-
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: Stack(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: Colors.amber,
-                          radius: 25,
-                          child: Text(
-                            userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
+                return FutureBuilder<DocumentSnapshot>(
+                  future: FirebaseFirestore.instance.collection('users').doc(senderId).get(),
+                  builder: (context, userSnapshot) {
+                    if (!userSnapshot.hasData) {
+                      return ListTile(
+                        leading: CircleAvatar(radius: 24, backgroundColor: Colors.grey[300]),
+                        title: Text('Loading...', style: GoogleFonts.poppins()),
+                      );
+                    }
+                    final userData = userSnapshot.data!.data();
+                    if (userData == null) {
+                      return Dismissible(
+                        key: Key('unknown_$senderId'),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          color: Colors.red,
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: const Icon(Icons.delete, color: Colors.white),
                         ),
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 2,
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.person,
-                              color: Colors.white,
-                              size: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    title: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              userName,
-                              style: GoogleFonts.lato(
-                                textStyle: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  color: Colors.black87,
+                        confirmDismiss: (direction) async {
+                          return await showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Delete Chat'),
+                              content: const Text('Are you sure you want to delete this chat?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  child: const Text('Cancel'),
                                 ),
-                              ),
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(true),
+                                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
+                          );
+                        },
+                        onDismissed: (direction) async {
+                          final sellerId = sharedPreferences!.getString("uid")!;
+                          final messages = await FirebaseFirestore.instance
+                              .collection("seller_chats")
+                              .doc(sellerId)
+                              .collection("messages")
+                              .where("senderId", isEqualTo: senderId)
+                              .get();
+                          for (var doc in messages.docs) {
+                            await doc.reference.delete();
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Chat deleted')),
+                          );
+                        },
+                        child: ListTile(
+                          leading: CircleAvatar(radius: 24, backgroundColor: Colors.grey[300]),
+                          title: Text('Unknown User', style: GoogleFonts.poppins()),
+                          subtitle: Text(
+                            lastMessage,
+                            style: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 14),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            ),
+                          trailing: Text(
+                            lastMessageTime != null ? _formatTime(lastMessageTime) : '',
+                            style: GoogleFonts.poppins(color: Colors.grey[500], fontSize: 12),
+                          ),
+                        ),
+                      );
+                    }
+                    final userMap = userData as Map<String, dynamic>;
+                    final userName = userMap['name'] ?? 'User';
+                    final userPhoto = userMap['photoUrl'];
+                    ImageProvider avatarProvider;
+                    if (userPhoto != null && userPhoto is String && userPhoto.isNotEmpty) {
+                      if (userPhoto.startsWith('http')) {
+                        avatarProvider = NetworkImage(userPhoto);
+                      } else {
+                        final decoded = _decodeBase64Image(userPhoto);
+                        if (decoded != null) {
+                          avatarProvider = MemoryImage(decoded);
+                        } else {
+                          avatarProvider = const AssetImage('images/user.png');
+                        }
+                      }
+                    } else {
+                      avatarProvider = const AssetImage('images/user.png');
+                    }
+
+                    return Dismissible(
+                      key: Key(senderId),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        color: Colors.red,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      confirmDismiss: (direction) async {
+                        return await showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Delete Chat'),
+                            content: const Text('Are you sure you want to delete this chat?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: const Text('Cancel'),
                               ),
-                              child: Text(
-                                'Customer',
-                                style: GoogleFonts.lato(
-                                  textStyle: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.amber[800],
-                                    fontWeight: FontWeight.w500,
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                child: const Text('Delete', style: TextStyle(color: Colors.red)),
                                   ),
-                                ),
+                            ],
                               ),
-                            ),
-                          ],
+                        );
+                      },
+                      onDismissed: (direction) async {
+                        // Delete all messages for this chat
+                        final sellerId = sharedPreferences!.getString("uid")!;
+                        final messages = await FirebaseFirestore.instance
+                            .collection("seller_chats")
+                            .doc(sellerId)
+                            .collection("messages")
+                            .where("senderId", isEqualTo: senderId)
+                            .get();
+                        for (var doc in messages.docs) {
+                          await doc.reference.delete();
+                        }
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Chat deleted')),
+                          );
+                        }
+                      },
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          radius: 24,
+                          backgroundImage: avatarProvider,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'User ID: ${senderId.substring(0, 8)}...',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                            fontStyle: FontStyle.italic,
-                          ),
+                        title: Text(
+                          userName,
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
                         ),
-                      ],
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 8),
-                        Text(
-                          'Last message:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[500],
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
+                        subtitle: Text(
                           lastMessage,
+                          style: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 14),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.grey[800],
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
                     ),
                     trailing: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        if (lastMessageTime != null)
                           Text(
-                            _formatTime(lastMessageTime),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
+                              lastMessageTime != null ? _formatTime(lastMessageTime) : '',
+                              style: GoogleFonts.poppins(color: Colors.grey[500], fontSize: 12),
                           ),
-                        if (unreadCount > 0)
+                            if ((chatData['unreadCount'] ?? 0) > 0)
                           Container(
                             margin: const EdgeInsets.only(top: 4),
                             padding: const EdgeInsets.all(6),
@@ -326,7 +352,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                               shape: BoxShape.circle,
                             ),
                             child: Text(
-                              unreadCount.toString(),
+                                  chatData['unreadCount'].toString(),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -343,11 +369,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
                           builder: (c) => ChatScreen(
                             userId: senderId,
                             userName: userName,
+                                userPhoto: userPhoto,
                           ),
                         ),
                       );
                     },
                   ),
+                    );
+                  },
                 );
               },
             );

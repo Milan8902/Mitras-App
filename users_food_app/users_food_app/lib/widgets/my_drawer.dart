@@ -197,31 +197,6 @@ class MyDrawer extends StatelessWidget {
                   const Divider(height: 10, color: Colors.white, thickness: 2),
                   ListTile(
                     leading: const Icon(
-                      Icons.search,
-                      color: Colors.black,
-                      size: 25,
-                    ),
-                    title: Text(
-                      'Search',
-                      style: GoogleFonts.lato(
-                        textStyle: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: ((context) => const SearchScreen()),
-                        ),
-                      );
-                    },
-                  ),
-                  const Divider(height: 10, color: Colors.white, thickness: 2),
-                  ListTile(
-                    leading: const Icon(
                       Icons.info_outline,
                       color: Colors.black,
                       size: 25,

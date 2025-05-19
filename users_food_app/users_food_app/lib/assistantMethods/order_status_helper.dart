@@ -9,8 +9,19 @@ class OrderStatusHelper {
     String? riderUid,
   }) async {
     try {
-      final userUid = sharedPreferences!.getString("uid");
-      if (userUid == null) throw Exception("User not logged in");
+      // Get the order document first to check current status
+      final orderDoc = await FirebaseFirestore.instance
+          .collection("orders")
+          .doc(orderId)
+          .get();
+      
+      if (!orderDoc.exists) {
+        throw Exception("Order not found");
+      }
+
+      final orderData = orderDoc.data() as Map<String, dynamic>;
+      final userUid = orderData["orderBy"] as String?;
+      if (userUid == null) throw Exception("User ID not found in order");
 
       final batch = FirebaseFirestore.instance.batch();
       
@@ -32,8 +43,8 @@ class OrderStatusHelper {
         'lastUpdated': FieldValue.serverTimestamp(),
       };
 
-      // Add rider UID if provided (for delivery status updates)
-      if (riderUid != null && status == 'delivering') {
+      // Add rider UID if provided
+      if (riderUid != null) {
         updateData['riderUID'] = riderUid;
       }
 
@@ -65,6 +76,26 @@ class OrderStatusHelper {
       print("Error getting order status: $e");
       return 'error';
     }
+  }
+
+  // Valid order statuses
+  static const List<String> validStatuses = [
+    'order placed',
+    'picking',
+    'delivering',
+    'completed',
+    'cancelled'
+  ];
+
+  // Check if status transition is valid
+  static bool isValidStatusTransition(String currentStatus, String newStatus) {
+    final currentIndex = validStatuses.indexOf(currentStatus);
+    final newIndex = validStatuses.indexOf(newStatus);
+    
+    if (currentIndex == -1 || newIndex == -1) return false;
+    
+    // Allow moving forward in the process or to cancelled
+    return newIndex > currentIndex || newStatus == 'cancelled';
   }
 
   // Get human-readable status

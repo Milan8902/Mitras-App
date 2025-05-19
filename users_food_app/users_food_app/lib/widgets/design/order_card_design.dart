@@ -261,50 +261,6 @@ class _OrderCardState extends State<OrderCard> {
           
           // Order Actions
           if (status == "ended")
-            Column(
-              children: [
-                const Divider(thickness: 1, height: 1, color: Colors.grey),
-                const SizedBox(height: 16),
-                Text(
-                  "Has your order been delivered?",
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _markOrderAsReceived,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF57C00),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.check_circle_outline, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          "Confirm Order Received",
-                          style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            )
-          else if (status == "received")
             Container(
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               decoration: BoxDecoration(
@@ -317,7 +273,7 @@ class _OrderCardState extends State<OrderCard> {
                   Icon(Icons.verified, color: Colors.green[800], size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    "Order completed successfully!",
+                    "Order delivered successfully!",
                     style: GoogleFonts.poppins(
                       color: Colors.green[800],
                       fontWeight: FontWeight.w500,

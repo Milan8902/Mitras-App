@@ -101,28 +101,40 @@ class _ParcelDeliveringScreenState extends State<ParcelDeliveringScreen> {
   }
 
   //retrieve order total amount
-  getOrderTotalAmount() {
-    FirebaseFirestore.instance
-        .collection("orders")
-        .doc(widget.getOrderId)
-        .get()
-        .then((snap) {
+  Future<void> getOrderTotalAmount() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection("orders")
+          .doc(widget.getOrderId)
+          .get();
+      
+      if (snap.exists && snap.data() != null) {
+        setState(() {
           orderTotalAmount = snap.data()!["totalAmount"].toString();
           widget.sellerId = snap.data()!["sellerUID"].toString();
-        })
-        .then((value) {
-          getSellerData();
         });
+        await getSellerData();
+      }
+    } catch (e) {
+      print("Error getting order total amount: $e");
+    }
   }
 
-  getSellerData() {
-    FirebaseFirestore.instance
-        .collection("sellers")
-        .doc(widget.sellerId)
-        .get()
-        .then((snap) {
+  Future<void> getSellerData() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection("sellers")
+          .doc(widget.sellerId)
+          .get();
+      
+      if (snap.exists && snap.data() != null) {
+        setState(() {
           previousEarnings = snap.data()!["earnings"].toString();
         });
+      }
+    } catch (e) {
+      print("Error getting seller data: $e");
+    }
   }
 
   @override
